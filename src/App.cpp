@@ -34,7 +34,7 @@ App::App() {
     // Command-line flags override saved preferences.
     if (g_opt.engine) { if (*g_opt.engine == EngineKind::Off) multiplier = 1; else engine = *g_opt.engine; }
     if (g_opt.mult) multiplier = *g_opt.mult;
-    if (!EngineSupport::isSupported(engine)) engine = EngineKind::Fast;   // e.g. DLSS-G without --experimental-dlss
+    if (!EngineSupport::isSupported(engine)) engine = EngineKind::Fast;   // saved NVIDIA engine this PC can't run
     audio.volume = g_opt.volume.value_or(p.volume());
     audio.muted = g_opt.volume ? false : p.muted();
     audio.userOffset = p.audioOffsetMs() / 1000.0;
@@ -285,7 +285,7 @@ bool App::handleKey(WPARAM vk) {
     case '0': setMultiplier(1); return true;
     case '2': setEngine(EngineKind::Fast); if (multiplier <= 1) setMultiplier(2); return true;
     case '3': setEngine(EngineKind::Quality); if (multiplier <= 1) setMultiplier(2); return true;
-    case 'D': if (EngineSupport::isSupported(EngineKind::DlssG)) { setEngine(EngineKind::DlssG); if (multiplier <= 1) setMultiplier(2); } return true;
+    case 'D': setEngine(EngineKind::DlssG); if (multiplier <= 1) setMultiplier(2); return true;
     case 'V': setEngine(EngineKind::Vfg); if (multiplier <= 1) setMultiplier(2); return true;
     case 'M': { int next[] = {2, 2, 3, 4, 2}; setMultiplier(next[std::clamp(multiplier, 1, 4)]); return true; }
     case 'C': renderer->compare = !renderer->compare; syncControls(); return true;
@@ -578,7 +578,7 @@ void App::applyGeneration() {
     int m = effectiveMultiplier();
     bool dlss = m > 1 && effectiveEngine() == EngineKind::DlssG && EngineSupport::isSupported(EngineKind::DlssG);
     pipeline->wantMotion = dlss;
-    if (m <= 1 || !EngineSupport::any() || dlss || vfgBlocked()) pipeline->configure(EngineKind::Off, std::max(m, 2));
+    if (m <= 1 || !EngineSupport::any() || dlss || engineBlocked()) pipeline->configure(EngineKind::Off, std::max(m, 2));
     else pipeline->configure(effectiveEngine(), m);
     ensurePresenter();
     if (renderer) renderer->generate = std::max(1, m - 1);
@@ -597,17 +597,29 @@ void App::setMultiplier(int m) {
     applyGeneration();
 }
 
-/// The user picked NVIDIA VFG but this PC can't run it: generation stays off until they choose another mode.
-bool App::vfgBlocked() const { return engine == EngineKind::Vfg && !EngineSupport::isSupported(EngineKind::Vfg); }
+/// The user picked an NVIDIA engine this PC can't run: why, in plain English ("" = fine). Generation
+/// stays off until they choose another mode.
+std::string App::engineBlockReason() const {
+    if (engine == EngineKind::Vfg && !EngineSupport::isSupported(EngineKind::Vfg)) return Vfg::support().reason;
+    if (engine == EngineKind::DlssG && !EngineSupport::isSupported(EngineKind::DlssG)) {
+        const auto& d = DlssG::support();
+        if (d.gpuUnsupported || !Gpu::get().isNvidia) return "Your GPU does not support NVIDIA DLSS Frame Generation. Frame generation is disabled, please select another option.";
+        return "NVIDIA DLSS Frame Generation can't run: " + d.reason + ". Frame generation is disabled, please select another option.";
+    }
+    return "";
+}
+bool App::engineBlocked() const { return !engineBlockReason().empty(); }
 
 void App::setEngine(EngineKind k) {
-    if (k != EngineKind::Vfg && !EngineSupport::isSupported(k)) return;
+    if (k != EngineKind::Vfg && k != EngineKind::DlssG && !EngineSupport::isSupported(k)) return;
     engine = k;
     Prefs::get().set("engine", std::string(engineId(k)));
     clearAuto();
     applyGeneration();
-    if (vfgBlocked()) logf("[app] NVIDIA VFG selected but unavailable: %s", Vfg::support().reason.c_str());
-    if (vfgBlocked() && hwnd) MessageBoxW(hwnd, widen(Vfg::support().reason).c_str(), L"FrameGen — NVIDIA VFG", MB_ICONWARNING | MB_OK);
+    if (std::string why = engineBlockReason(); !why.empty()) {
+        logf("[app] %s selected but unavailable: %s", engineShortLabel(k), why.c_str());
+        if (hwnd) MessageBoxW(hwnd, widen(why).c_str(), (L"FrameGen — " + widen(engineShortLabel(k))).c_str(), MB_ICONWARNING | MB_OK);
+    }
 }
 
 void App::setHudLock(bool on) {
@@ -631,12 +643,10 @@ void App::nudgeSync(int ms) {
 std::vector<Dashboard::EngineChoice> App::engineChoices() {
     std::vector<Dashboard::EngineChoice> v;
     for (EngineKind k : {EngineKind::Fast, EngineKind::Quality, EngineKind::Vfg, EngineKind::DlssG}) {
-        if (k == EngineKind::DlssG && !EngineSupport::experimentalDlss()) continue;   // hidden unless enabled
         std::string why;
         if (k == EngineKind::Vfg) why = Vfg::support().reason;
-        if (k == EngineKind::DlssG) why = DlssG::support().reason;
-        // VFG is always offered: picking it on a PC that can't run it says why.
-        v.push_back({k, engineShortLabel(k), k == EngineKind::Vfg || EngineSupport::isSupported(k), why});
+        // The NVIDIA engines are always offered: picking one on a PC that can't run it says why.
+        v.push_back({k, engineShortLabel(k), k == EngineKind::Vfg || k == EngineKind::DlssG || EngineSupport::isSupported(k), why});
     }
     return v;
 }
@@ -813,8 +823,8 @@ void App::refreshDashboard(const Stats::Snapshot* snap) {
         if (err.empty()) warn.push_back("No picture from the console? Check it's on, HDMI goes into the card's IN port, and HDCP is off.");
     if (!EngineSupport::any()) warn.push_back(EngineSupport::unsupportedReason());
     if (!autoNote.empty()) warn.push_back(autoNote);
-    if (vfgBlocked() && multiplier > 1) {
-        warn.push_back(Vfg::support().reason);
+    if (engineBlocked() && multiplier > 1) {
+        warn.push_back(engineBlockReason());
         if (!live.action) { live.actionTitle = "Use Low latency instead"; live.action = [this] { setEngine(EngineKind::Fast); }; }
     }
     if (auto n = displayCapNote(); !n.empty()) warn.push_back(n);
@@ -825,6 +835,8 @@ void App::refreshDashboard(const Stats::Snapshot* snap) {
     if (renderer->compare) warn.push_back("Compare on: left = original, right = generated.");
     if (strcmp(renderer->kind(), "dlss") == 0 && GetForegroundWindow() != hwnd)
         warn.push_back("DLSS Frame Generation pauses while this window isn't in focus — click the picture to resume.");
+    if (renderer && strcmp(renderer->kind(), "dlss") == 0 && DlssG::maxGenerateKnown() > 0 && multiplier - 1 > DlssG::maxGenerateKnown())
+        warn.push_back(strf("DLSS Frame Generation on this graphics card goes up to %d×, so that's what you get.", DlssG::maxGenerateKnown() + 1));
 
     // Sound line
     int offset = Prefs::get().audioOffsetMs();

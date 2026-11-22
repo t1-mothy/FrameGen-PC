@@ -19,8 +19,8 @@ pipeline) and `docs/DEVELOPMENT.md` (architecture, measurements, test tools).
   --quit-after 8 --windowed`, real card: `--source capture --log --dump-live out\live`.
   `FG_PREFS=<file>` keeps tests from changing the user's settings; `FG_TRACE=1`, `FG_PROFILE=1`
   for per-frame timings / GPU passes.
-- DLSS Frame Generation is optional and **experimental** (`--experimental-dlss`); it needs the
-  Streamline SDK in `third_party\streamline` (`tools\get_streamline.ps1`). See `docs/DLSS.md`.
+- NVIDIA DLSS Frame Generation needs the Streamline SDK in `third_party\streamline`
+  (`tools\get_streamline.ps1`); Streamline starts in the background at launch. See `docs/DLSS.md`.
 - NVIDIA VFG (AI frame generation, `src/VfgEngine.*`) loads NVIDIA's Video Effects runtime at run
   time; for development put the four DLLs in `third_party\nvvfx\runtime` (copied to
   `build\nvidia-vfx`). See `docs/VFG.md`. Compare engines on real frames with `--check-real`.

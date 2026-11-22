@@ -163,11 +163,16 @@ void DlssPresenter::releaseTargets() {
     back_.clear();
 }
 
+int DlssPresenter::wantedGenerate() const {
+    int maxGen = DlssG::maxGenerateKnown() > 0 ? DlssG::maxGenerateKnown() : DlssG::support().maxFramesToGenerate;
+    return std::clamp(generate.load(), 1, std::max(1, maxGen));
+}
+
 void DlssPresenter::setMode(bool on) {
     if (!rt_ || !rt_->dlssgSetOptions) return;
     sl::DLSSGOptions o{};
     o.mode = on ? sl::DLSSGMode::eOn : sl::DLSSGMode::eOff;
-    o.numFramesToGenerate = uint32_t(std::clamp(generate.load(), 1, std::max(1, DlssG::support().maxFramesToGenerate)));
+    o.numFramesToGenerate = uint32_t(wantedGenerate());
     o.flags = sl::DLSSGFlags::eRetainResourcesWhenOff;
     o.numBackBuffers = 3;
     o.colorWidth = bw_; o.colorHeight = bh_; o.mvecDepthWidth = bw_; o.mvecDepthHeight = bh_;
@@ -295,7 +300,7 @@ bool DlssPresenter::presentSlot(Slot& s, bool reset) {
     c.motionVectorsDilated = sl::Boolean::eFalse;
     c.motionVectorsJittered = sl::Boolean::eFalse;
     rt_->setConstants(c, *token, sl::ViewportHandle(0));
-    if (generate.load() != optionsGenerate_ || !modeOn_) setMode(true);
+    if (wantedGenerate() != optionsGenerate_ || !modeOn_) setMode(true);
 
     int ai = allocIdx_; allocIdx_ = (allocIdx_ + 1) % 3;
     if (done12_->GetCompletedValue() < allocDone_[ai]) { done12_->SetEventOnCompletion(allocDone_[ai], fenceEvent_); WaitForSingleObject(fenceEvent_, 1000); }
@@ -417,6 +422,7 @@ void DlssPresenter::run() {
         sl::DLSSGState st{};
         if (rt_->dlssgGetState(sl::ViewportHandle(0), st, nullptr) == sl::Result::eOk) {
             n = std::max(1, int(st.numFramesActuallyPresented));
+            DlssG::setMaxGenerateKnown(int(st.numFramesToGenerateMax));
             static double lastLog = 0;
             if (g_opt.log && t - lastLog > 1) { lastLog = t; logf("[dlss] state: status %u, presented %u per real frame, max generate %u, vsync support %d, mode %s gen %d",
                 unsigned(st.status), st.numFramesActuallyPresented, st.numFramesToGenerateMax, int(st.bIsVsyncSupportAvailable), modeOn_ ? "on" : "off", optionsGenerate_); }

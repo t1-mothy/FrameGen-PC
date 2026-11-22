@@ -13,6 +13,8 @@ simple dashboard (H), same Settings, same automatic behaviour.
   - **NVIDIA VFG** (RTX 40/50): NVIDIA's AI video frame generation, included in the installer. It
     gives the cleanest picture on fast camera movement (≈ 3 ms per frame at 1080p on a current RTX
     GPU). See [docs/VFG.md](docs/VFG.md).
+  - **NVIDIA DLSS FG** (RTX 40/50): NVIDIA DLSS Frame Generation, included in the installer
+    (generates while the window is focused). See [docs/DLSS.md](docs/DLSS.md).
   - FrameGen's own GPU engine (Direct3D 11 compute, any modern GPU): *Low latency* (≈ 2 ms) and
     *Smoothest* (searches motion for every generated frame).
 - **Any console and signal rate** — captures as fast as the card allows (up to 120 Hz), detects the
@@ -24,7 +26,6 @@ simple dashboard (H), same Settings, same automatic behaviour.
   frames than the display can show, suggests an even refresh rate (or use G-SYNC / FreeSync mode).
 - **Dashboard** (H) with output vs game FPS, graph, delay and quick controls (mouse or keys), a
   **right-click menu** with every quick option, and **Settings** (Ctrl+,).
-- Experimental: **NVIDIA DLSS Frame Generation** (RTX 40/50) — see [docs/DLSS.md](docs/DLSS.md).
 
 ## Install
 
@@ -64,7 +65,7 @@ for the test tools). No other dependencies; shaders compile at runtime.
 Plug in the capture card and start FrameGen — it picks the card, the best capture mode and your
 saved settings. Everything is on the dashboard and the right-click menu. Keys: **H** shows/hides
 the dashboard, **F** full screen, **M** cycles 2×/3×/4×, **0** off, **2** Low latency, **3** Smoothest,
-**V** NVIDIA VFG, **C** compare original vs generated, **U** HUD stabilisation, **Ctrl+,** Settings.
+**V** NVIDIA VFG, **D** NVIDIA DLSS FG, **C** compare original vs generated, **U** HUD stabilisation, **Ctrl+,** Settings.
 
 If Windows blocks the camera ("Camera access needed"), turn on *Let desktop apps access your camera*
 (Settings › Privacy & security › Camera); the dashboard has a button for it.

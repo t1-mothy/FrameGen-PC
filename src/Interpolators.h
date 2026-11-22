@@ -23,7 +23,6 @@ std::unique_ptr<Interpolator> makeInterpolator(EngineKind kind, std::string& err
 /// Engine availability (the Windows counterpart of the Mac app's EngineSupport table).
 namespace EngineSupport {
 bool isSupported(EngineKind k);
-bool experimentalDlss();   // --experimental-dlss or FG_EXPERIMENTAL_DLSS=1
 bool any();
 std::optional<EngineKind> best(EngineKind preferred);
 std::string unsupportedReason();

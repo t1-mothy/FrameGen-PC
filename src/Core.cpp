@@ -116,7 +116,7 @@ const char* engineShortLabel(EngineKind k) {
     case EngineKind::Blend: return "Blend";
     case EngineKind::Fast: return "Low latency";
     case EngineKind::Quality: return "Smoothest";
-    case EngineKind::DlssG: return "DLSS (experimental)";
+    case EngineKind::DlssG: return "NVIDIA DLSS FG";
     case EngineKind::Vfg: return "NVIDIA VFG (AI)";
     }
     return "";

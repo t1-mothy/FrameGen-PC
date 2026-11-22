@@ -57,16 +57,10 @@ std::unique_ptr<Interpolator> makeInterpolator(EngineKind kind, std::string& err
 }
 
 namespace EngineSupport {
-bool experimentalDlss() {
-    static bool on = getenv("FG_EXPERIMENTAL_DLSS") != nullptr || g_opt.experimentalDlss;
-    return on;
-}
 // Both built-in engines run on any Direct3D 11 GPU. NVIDIA Optical Flow FRUC / DLSS Frame
 // Generation and AMD FSR 3 can be added here as further engines (see docs/PLAN.md, M8).
 bool isSupported(EngineKind k) {
-    // DLSS-G is experimental: it currently ends in a GPU reset after a few seconds (NGX platform
-    // error inside DLSS-G's own work — see docs/DLSS.md). Only offered when explicitly enabled.
-    if (k == EngineKind::DlssG) return experimentalDlss() && DlssG::support().supported;
+    if (k == EngineKind::DlssG) return DlssG::support().supported;
     if (k == EngineKind::Vfg) return Vfg::support().supported;
     return k == EngineKind::Off || Gpu::get().dev != nullptr;
 }
@@ -78,8 +72,8 @@ std::optional<EngineKind> best(EngineKind preferred) {
 }
 std::string unsupportedReason() { return "Frame generation needs a Direct3D 11 graphics card."; }
 std::string describe() {
-    std::string dl = "experimental — start with --experimental-dlss";
-    if (experimentalDlss()) { const auto& d = DlssG::support(); dl = d.supported ? "yes (experimental)" : ("no — " + d.reason); }
+    const auto& d = DlssG::support();
+    std::string dl = d.supported ? strf("yes (up to %d×)", d.maxFramesToGenerate + 1) : ("no — " + d.reason);
     auto& g = Gpu::get();
     const auto& v = Vfg::support();
     std::string vfg = v.supported ? "yes (" + narrow(v.dir) + ")" : "no — " + v.reason;

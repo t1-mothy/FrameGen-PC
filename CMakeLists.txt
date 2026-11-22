@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(FrameGen VERSION 1.0.0 LANGUAGES CXX)
+project(FrameGen VERSION 1.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -78,7 +78,8 @@ if(EXISTS ${VFX_RT}/NVVideoEffects.dll)
 endif()
 
 # ---- Installer (per-user, no admin rights): .\package.ps1, or cmake --build build --target FrameGenSetup
-# Embeds FrameGen.exe, the licences and — when third_party/nvidia runtime is present — NVIDIA VFG
+# Embeds FrameGen.exe, the licences, NVIDIA DLSS Frame Generation (Streamline) when the SDK is in
+# third_party/streamline, and NVIDIA VFG when its runtime is in third_party/nvvfx/runtime
 # (plus the Visual C++ runtime DLLs NVIDIA's DLLs need, app-local in nvidia-vfx\).
 set(payload_rel FrameGen.exe LICENSE.txt THIRD_PARTY_NOTICES.txt README.txt)
 set(payload_src "${CMAKE_BINARY_DIR}/FrameGen.exe" "${CMAKE_SOURCE_DIR}/LICENSE" "${CMAKE_SOURCE_DIR}/THIRD_PARTY_NOTICES.txt" "${CMAKE_SOURCE_DIR}/installer/README.txt")
@@ -98,6 +99,16 @@ if(EXISTS ${VFX_RT}/NVVideoEffects.dll)
       list(APPEND payload_src "${f}")
     endforeach()
   endif()
+endif()
+if(EXISTS ${SL_DIR}/include/sl.h)
+  foreach(d ${SL_DLLS})
+    list(APPEND payload_rel "streamline/${d}")
+    list(APPEND payload_src "${SL_DIR}/bin/x64/${d}")
+  endforeach()
+  list(APPEND payload_rel streamline/licenses/Streamline-license.txt streamline/licenses/nvngx_dlss.license.txt
+                          streamline/licenses/reflex.license.txt streamline/licenses/3rd-party-licenses.md)
+  list(APPEND payload_src "${SL_DIR}/license.txt" "${SL_DIR}/bin/x64/nvngx_dlss.license.txt"
+                          "${SL_DIR}/bin/x64/reflex.license.txt" "${SL_DIR}/3rd-party-licenses.md")
 endif()
 set(list_text "")
 set(rc_text "999 RCDATA \"${CMAKE_BINARY_DIR}/setup_files.txt\"

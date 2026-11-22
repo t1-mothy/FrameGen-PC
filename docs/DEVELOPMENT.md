@@ -17,7 +17,7 @@ src/
   VfgEngine.*         NVIDIA VFG (Video Effects SDK, loaded at run time, D3D11↔CUDA interop) — docs/VFG.md
   Hud.*               HUD / text stabiliser (port of the Mac's Metal kernels)
   Renderer.*          Presenter interface + D3D11 presenter (vblank-driven, present only on change)
-  DlssG.*, DlssPresenter.*   optional DLSS Frame Generation through Streamline (experimental, docs/DLSS.md)
+  DlssG.*, DlssPresenter.*   NVIDIA DLSS Frame Generation through Streamline (docs/DLSS.md)
   Audio.*             WASAPI capture of the card's endpoint + delayed, drift-corrected render
   Dashboard.*         Direct2D dashboard + FPS counter (overlays composited by the presenter)
   Settings.*          Win32 Settings window (Video, Frame Generation, Display, Sound, Interface)
@@ -115,14 +115,15 @@ delay ≈ 41 ms. 25 fps PAL on 50 Hz captured at 120 Hz: cadence jitter 3.33 →
 `FG_ENGINES=fast,quality,vfg` (engines for `--bench` / `--check-quality` / `--check-real`), `FG_VFG_MODEL`,
 `FG_SIGMA` (soft vector choice, 0 = hard), `FG_R1` (3×3 instead of 5×5 neighbourhood),
 `.\build.ps1 -Target framegen-cli`, `--activate` (take focus;
-tests only), `--experimental-dlss`, `--check-dlss`, `FG_DRED=1`, `FG_SL_DEV=1`.
+tests only), `--check-dlss`, `FG_NO_DLSS=1` (skip Streamline), `FG_DLSS_NOGPU=1` (behave like a GPU without DLSS-G), `FG_DRED=1`, `FG_SL_DEV=1`.
 
 ## Release
 
 `.\package.ps1` → `dist\FrameGen-Setup-<version>.exe` (version: `project()` in CMakeLists.txt).
 The installer (`installer/Setup.cpp`) is a plain Win32 program; CMake writes `setup_payload.rc`
-with FrameGen.exe, the licences, the README and — if present — `third_party\nvvfx\runtime\**`
-plus the Visual C++ runtime DLLs (from `%VCToolsRedistDir%`) as RCDATA resources. It installs per
+with FrameGen.exe, the licences, the README and — if present — the Streamline / DLSS-G DLLs
+(`streamline\`) and `third_party\nvvfx\runtime\**` plus the Visual C++ runtime DLLs (from
+`%VCToolsRedistDir%`) as RCDATA resources. It installs per
 user to `%LOCALAPPDATA%\Programs\FrameGen` (`/S` = silent), creates shortcuts and the Windows
 › Apps entry; `FrameGen.exe --uninstall` removes exactly the registered folder (and refuses
 anywhere else). The app logs each run to `%LOCALAPPDATA%\FrameGen\FrameGen.log` (previous run:
@@ -140,5 +141,5 @@ that post mouse messages.
 ## Keys
 
 H / Tab dashboard · F / F11 / double-click full screen · Esc leave full screen · M 2×/3×/4× ·
-0 off · 2 Low latency · 3 Smoothest · V NVIDIA VFG · D DLSS (experimental) · C compare · U HUD stabiliser ·
+0 off · 2 Low latency · 3 Smoothest · V NVIDIA VFG · D NVIDIA DLSS FG · C compare · U HUD stabiliser ·
 Ctrl+[ / Ctrl+] sound sync · Ctrl+M mute · Ctrl+, Settings.

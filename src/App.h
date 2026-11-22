@@ -68,7 +68,8 @@ public:
     void clearAuto();
     void applyGeneration();
     void syncControls();
-    bool vfgBlocked() const;
+    bool engineBlocked() const;
+    std::string engineBlockReason() const;
     std::vector<Dashboard::EngineChoice> engineChoices();
     void showContextMenu(POINT screen);
     bool generating();      // frames are being generated (own engine or DLSS-G)

@@ -34,6 +34,7 @@ private:
     void compose(Slot& s, const FramePtr& frame);
     bool presentSlot(Slot& s, bool reset);
     void setMode(bool on);
+    int wantedGenerate() const;   // frames to generate, within this GPU's limit
     void waitGpu12();
     void dumpDred();
 

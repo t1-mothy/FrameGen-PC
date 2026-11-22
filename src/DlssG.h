@@ -21,14 +21,22 @@ namespace DlssG {
 struct Support {
     bool loaded = false;       // Streamline DLLs found, NVIDIA-signed and initialised
     bool supported = false;    // DLSS-G usable on this GPU / OS / driver
+    bool gpuUnsupported = false;   // the graphics card itself can't run it (not RTX 40 / 50)
     int maxFramesToGenerate = 0;
     std::string reason;        // why not, in plain English
 };
 /// Checks (once) whether DLSS Frame Generation can run here. Initialises Streamline on success
 /// (kept for the rest of the run).
 const Support& support();
+/// Starts the support check on a background thread (it takes ~1 s); support() waits for it.
+void checkInBackground();
+/// Generated frames per real frame this GPU's DLSS-G allows (RTX 40: 1, RTX 50: up to 5),
+/// known once DLSS-G has run; 0 = not known yet.
+int maxGenerateKnown();
+void setMaxGenerateKnown(int n);
 /// Starts Streamline. Must run before any DXGI / Direct3D call in the process (SDK requirement).
 void preInit();
+void startPreInit();   // the same, on a background thread (preInit() / support() wait for it)
 /// --check-dlss: prints a detailed report.
 int runCheck();
 std::wstring streamlineDir();

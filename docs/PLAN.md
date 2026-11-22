@@ -12,7 +12,7 @@
 | M5 | Audio passthrough | ✅ implemented (WASAPI, ring buffer steered to the video delay, output picker) — sync not yet measured with a real headset |
 | M6 | Dashboard + Settings + prefs + auto-adjust + display cap | ✅ done — same layout/wording as Mac 1.2.0 |
 | M7 | HUD stabiliser + `--check-hud` | ✅ ported — UI error 2.15 → 1.68 (our engine already wobbles less than Apple's) |
-| M8 | DLSS-G via Streamline; FSR 3 fallback | ✅ NVIDIA VFG (Video Effects SDK) integrated and selectable — see docs/VFG.md. 🧪 DLSS-G integrated, **experimental** (GPU reset after a few seconds — see docs/DLSS.md). FSR 3 / NVIDIA FRUC not started |
+| M8 | DLSS-G via Streamline; FSR 3 fallback | ✅ NVIDIA VFG (Video Effects SDK) integrated and selectable — see docs/VFG.md. ✅ DLSS-G integrated and selectable (docs/DLSS.md). FSR 3 / NVIDIA FRUC not started |
 | M9 | Installer, signing notes, release | ⏳ not started |
 
 Engine choice differs from the original plan: NVIDIA's Optical Flow FRUC library needs a

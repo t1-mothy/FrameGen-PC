@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.0
+- NVIDIA DLSS Frame Generation is a regular engine ("NVIDIA DLSS FG", key D), included in the
+  installer. It was experimental because of GPU resets that turned out to be a hardware fault on
+  the test PC. Choosing it on a GPU that can't run it explains why and turns generation off.
+- Streamline starts in the background, so launching stays fast (≈ +0.1 s).
+- DLSS-G's frame count is capped to what the card allows (RTX 40: 2×), with a note on the dashboard.
+
 ## 1.0.0
 - Installer (per user, no admin rights) with NVIDIA VFG included; uninstall from Windows › Apps.
 - Logs and crash reports in %LOCALAPPDATA%\FrameGen (Settings › Interface › Open logs folder).

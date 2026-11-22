@@ -117,7 +117,7 @@ struct Options {
     double stress = 0;   // --stress <seconds>
     bool checkDlss = false;
     bool activate = false;
-    bool experimentalDlss = false;   // --experimental-dlss   // --activate: take keyboard focus even when launched from a terminal (tests)
+    bool experimentalDlss = false;   // --experimental-dlss (no longer needed; accepted for old command lines)   // --activate: take keyboard focus even when launched from a terminal (tests)
     double maxHz = 0;
     bool dedupe = true, edgeFix = true, hudLock = true;
     std::string scene = "action";      // action | still | static | hud | stopgo

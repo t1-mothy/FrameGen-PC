@@ -1,4 +1,7 @@
 #include "DlssG.h"
+#include <atomic>
+#include <future>
+#include <mutex>
 #include "Gpu.h"
 
 #ifdef FG_HAVE_STREAMLINE
@@ -41,7 +44,9 @@ static bool loadRuntime(Runtime& a, bool verbose, std::string& why) {
     std::wstring dir = streamlineDir(), path = dir + L"\\sl.interposer.dll";
     if (GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES) { why = "DLSS Frame Generation files aren't installed (streamline folder missing)"; return false; }
     // Only load NVIDIA-signed Streamline (security requirement of the SDK).
+    double tv = hostNow();
     if (!getenv("FG_SL_DEV") && !sl::security::verifyEmbeddedSignature(path.c_str())) { why = "sl.interposer.dll is not signed by NVIDIA — refusing to load it"; return false; }
+    if (getenv("FG_TRACE")) logf("[dlss] signature check %.0f ms", (hostNow() - tv) * 1000);
     a.dll = LoadLibraryExW(path.c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
     if (!a.dll) { why = "could not load sl.interposer.dll"; return false; }
     bool ok = sym(a.dll, a.init, "slInit") && sym(a.dll, a.shutdown, "slShutdown") && sym(a.dll, a.isSupported, "slIsFeatureSupported") &&
@@ -64,7 +69,9 @@ static bool loadRuntime(Runtime& a, bool verbose, std::string& why) {
     pref.featuresToLoad = features; pref.numFeaturesToLoad = 3;
     pref.engine = sl::EngineType::eCustom; pref.engineVersion = FG_VERSION; pref.projectId = "a0f57b54-1daf-4934-90ae-c4035c19df04";
     pref.renderAPI = sl::RenderAPI::eD3D12;
+    double ti = hostNow();
     sl::Result r = a.init(pref, sl::kSDKVersion);
+    if (getenv("FG_TRACE")) logf("[dlss] slInit %.0f ms", (hostNow() - ti) * 1000);
     if (r != sl::Result::eOk) { why = "Streamline didn't start: " + resultText(r); return false; }
     return true;
 }
@@ -100,35 +107,68 @@ Runtime* runtime() { return g_rtReady ? &g_rt : nullptr; }
 #endif
 
 static std::string g_preInitError;
-static bool g_preInitDone = false;
-void preInit() {
+static std::once_flag g_preInitOnce;
+static std::shared_future<void> g_preInit;
+// Streamline uses manual hooking here (only our own D3D12 objects go through it), so it can start
+// on a background thread while the rest of FrameGen starts (slInit takes ~1.3 s).
+void startPreInit() {
+    std::call_once(g_preInitOnce, [] {
+        g_preInit = std::async(std::launch::async, [] {
 #ifdef FG_HAVE_STREAMLINE
-    if (g_preInitDone) return;
-    g_preInitDone = true;
-    if (loadRuntime(g_rt, getenv("FG_SL_DEV") != nullptr, g_preInitError)) g_rtReady = true;
+            double t0 = hostNow();
+            if (loadRuntime(g_rt, getenv("FG_SL_DEV") != nullptr, g_preInitError)) g_rtReady = true;
+            logf("[dlss] Streamline %s in %.0f ms", g_rtReady ? "started" : "not started", (hostNow() - t0) * 1000);
 #endif
+        }).share();
+    });
 }
+void preInit() { startPreInit(); g_preInit.wait(); }
 
-const Support& support() {
-    static Support s = [] {
+static std::atomic<int> g_maxGenKnown{0};
+int maxGenerateKnown() { return g_maxGenKnown.load(); }
+void setMaxGenerateKnown(int n) { if (n > 0) g_maxGenKnown = n; }
+
+static Support computeSupport() {
+    {
         Support x;
 #ifdef FG_HAVE_STREAMLINE
         preInit();
+        if (getenv("FG_DLSS_NOGPU")) { x.reason = resultText(sl::Result::eErrorAdapterNotSupported); x.gpuUnsupported = true; return x; }   // test aid
         if (!g_rtReady) { x.reason = g_preInitError; return x; }
         x.loaded = true;
         sl::AdapterInfo ai{};
         LUID luid = Gpu::get().adapterLuid;
         ai.deviceLUID = (uint8_t*)&luid; ai.deviceLUIDSizeInBytes = sizeof(LUID);
         sl::Result r = g_rt.isSupported(sl::kFeatureDLSS_G, ai);
-        if (r != sl::Result::eOk) { x.reason = resultText(r); return x; }
+        if (r != sl::Result::eOk) {
+            x.reason = resultText(r);
+            x.gpuUnsupported = r == sl::Result::eErrorNoSupportedAdapterFound || r == sl::Result::eErrorAdapterNotSupported;
+            return x;
+        }
         x.supported = true;
         x.maxFramesToGenerate = 3;   // refined when the D3D12 device exists (RTX 50: up to 5)
 #else
-        x.reason = "this build was made without the Streamline SDK";
+        x.reason = "this copy of FrameGen was built without NVIDIA DLSS Frame Generation";
 #endif
         return x;
-    }();
-    return s;
+    }
+}
+
+static std::once_flag g_checkOnce;
+static std::shared_future<Support> g_check;
+void checkInBackground() {
+    std::call_once(g_checkOnce, [] {
+        g_check = std::async(std::launch::async, [] {
+            double t0 = hostNow();
+            Support s = computeSupport();
+            logf("[dlss] DLSS Frame Generation %s (checked in %.0f ms)", s.supported ? "available" : ("not available: " + s.reason).c_str(), (hostNow() - t0) * 1000);
+            return s;
+        }).share();
+    });
+}
+const Support& support() {
+    checkInBackground();
+    return g_check.get();
 }
 
 int runCheck() {

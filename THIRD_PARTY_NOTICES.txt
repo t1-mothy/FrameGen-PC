@@ -35,10 +35,14 @@ Microsoft Visual C++ Runtime
 nvidia-vfx\msvcp140*.dll and vcruntime140*.dll are Microsoft Visual C++ runtime files,
 redistributed under the Microsoft Visual Studio licence terms (needed by NVIDIA's DLLs).
 
-NVIDIA Streamline / DLSS Frame Generation (optional, not included)
-------------------------------------------------------------------
-Source builds can enable experimental DLSS Frame Generation through NVIDIA Streamline (MIT); its
-NVIDIA binaries come with NVIDIA's own licence and are not part of FrameGen's installer.
+NVIDIA Streamline / DLSS Frame Generation
+-----------------------------------------
+Installers built with the Streamline SDK ship, in the streamline folder: sl.interposer.dll,
+sl.common.dll, sl.dlss_g.dll, sl.reflex.dll, sl.pcl.dll (NVIDIA Streamline, MIT License,
+streamline\licenses\Streamline-license.txt) and nvngx_dlssg.dll (NVIDIA DLSS Frame Generation),
+distributed as part of FrameGen under the NVIDIA RTX SDK licence (streamline\licenses\
+nvngx_dlss.license.txt, reflex.license.txt; open-source components: 3rd-party-licenses.md).
+These files may not be distributed separately from FrameGen.
 
 Trademarks
 ----------

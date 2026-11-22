@@ -144,7 +144,7 @@ void build() {
     bool vfg = false;
     for (auto& f : payload()) if (f.rel.rfind(L"nvidia-vfx\\", 0) == 0) vfg = true;
     add(L"STATIC", (L"FrameGen " + widen(FG_VERSION)).c_str(), SS_LEFT, 24, 18, 460, 40, 0, g.title);
-    add(L"STATIC", vfg ? L"Real-time frame generation for console capture cards. Includes NVIDIA VFG, the AI frame generation for NVIDIA RTX 40 / 50 graphics cards."
+    add(L"STATIC", vfg ? L"Real-time frame generation for console capture cards. Includes NVIDIA VFG and NVIDIA DLSS Frame Generation for RTX 40 / 50 graphics cards."
                        : L"Real-time frame generation for console capture cards.",
         SS_LEFT, 24, 62, 460, 40, 0);
     add(L"STATIC", L"Installs for your Windows account (no administrator rights needed) in:", SS_LEFT, 24, 110, 460, 20, 0);
@@ -153,7 +153,7 @@ void build() {
     HWND l = add(L"BUTTON", L"Start FrameGen when done", BS_AUTOCHECKBOX | WS_TABSTOP, 24, 184, 300, 22, kLaunch);
     SendMessageW(d, BM_SETCHECK, BST_CHECKED, 0);
     SendMessageW(l, BM_SETCHECK, BST_CHECKED, 0);
-    add(L"STATIC", vfg ? L"FrameGen is MIT licensed. The included NVIDIA VFG files are covered by NVIDIA's licence; by installing you accept it."
+    add(L"STATIC", vfg ? L"FrameGen is MIT licensed. The included NVIDIA files (VFG, DLSS) are covered by NVIDIA's licences; by installing you accept them."
                        : L"FrameGen is MIT licensed.", SS_LEFT, 24, 214, 360, 36, 0);
     add(L"BUTTON", L"View licences", BS_PUSHBUTTON | WS_TABSTOP, 392, 216, 92, 26, kLicences);
     add(PROGRESS_CLASSW, L"", 0, 24, 260, 460, 14, kProgress);

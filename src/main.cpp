@@ -64,7 +64,7 @@ static int appMain(int argc, wchar_t** argv, int show) {
     }
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-    if (g_opt.experimentalDlss || g_opt.checkDlss || getenv("FG_EXPERIMENTAL_DLSS")) DlssG::preInit();   // Streamline must start before any DXGI / Direct3D call
+    if (!getenv("FG_NO_DLSS")) DlssG::startPreInit();   // NVIDIA Streamline (DLSS Frame Generation), in the background
     MFStartup(MF_VERSION);
     timeBeginPeriod(1);
     INITCOMMONCONTROLSEX icc{sizeof icc, ICC_TAB_CLASSES | ICC_BAR_CLASSES | ICC_STANDARD_CLASSES};
@@ -73,6 +73,7 @@ static int appMain(int argc, wchar_t** argv, int show) {
         MessageBoxW(nullptr, L"FrameGen needs a graphics card with DirectX 11 support, and a current graphics driver.", L"FrameGen", MB_ICONERROR);
         return 1;
     }
+    if (!getenv("FG_NO_DLSS")) DlssG::checkInBackground();   // ~1 s; finished before anyone needs it
     int rc;
     if (g_opt.listDevices) rc = runListDevices();
     else if (g_opt.bench) rc = runBench();
