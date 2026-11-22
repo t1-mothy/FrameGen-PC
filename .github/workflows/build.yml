@@ -1,0 +1,23 @@
+name: build
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build FrameGen
+        shell: pwsh
+        run: .\build.ps1
+      - name: Build installer (without NVIDIA VFG — NVIDIA's runtime isn't in the repository)
+        shell: pwsh
+        run: .\build.ps1 -Target FrameGenSetup
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FrameGen-windows
+          path: |
+            build/FrameGen.exe
+            build/framegen-cli.exe
+            build/FrameGen-Setup-*.exe

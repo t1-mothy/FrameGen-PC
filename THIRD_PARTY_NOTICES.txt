@@ -1,0 +1,47 @@
+FrameGen — third-party notices
+==============================
+
+FrameGen itself is released under the MIT License (LICENSE.txt).
+
+NVIDIA Video Effects SDK — Video Frame Generation (VFG)
+-------------------------------------------------------
+Installers that include NVIDIA VFG ship these NVIDIA files in the nvidia-vfx folder:
+NVVideoEffects.dll, NVCVImage.dll, cudart64_12.dll, nvVFXVideoFrameGeneration.dll.
+
+They are NVIDIA's property and are distributed as part of FrameGen under the NVIDIA Software
+License Agreement and the Product-Specific Terms for NVIDIA AI Products, with the model under
+the NVIDIA Open Model License. The full texts are in nvidia-vfx\licenses:
+  NVIDIA-Software-License-Agreement-2025.05.05.pdf
+  product-specific-terms-for-nvidia-ai-products-2025.05.05.pdf
+  NVIDIA-Open-Model-License-Agreements-24-10-2025.pdf
+  ThirdPartyLicenses_VFX_SDK.txt (open-source components used by the SDK)
+You may not extract these files and distribute them separately from FrameGen. They may not be
+reverse engineered, and they're provided without warranty by NVIDIA.
+
+FrameGen's declarations of the SDK's C interface follow NVIDIA's MIT-licensed headers
+(github.com/NVIDIA-Maxine/Maxine-VFX-SDK, nvvfx/include):
+
+  Copyright 2020-2021 NVIDIA Corporation
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this software
+  and associated documentation files (the "Software"), to deal in the Software without
+  restriction, including without limitation the rights to use, copy, modify, merge, publish,
+  distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the
+  Software is furnished to do so, subject to the following conditions: The above copyright notice
+  and this permission notice shall be included in all copies or substantial portions of the
+  Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
+
+Microsoft Visual C++ Runtime
+----------------------------
+nvidia-vfx\msvcp140*.dll and vcruntime140*.dll are Microsoft Visual C++ runtime files,
+redistributed under the Microsoft Visual Studio licence terms (needed by NVIDIA's DLLs).
+
+NVIDIA Streamline / DLSS Frame Generation (optional, not included)
+------------------------------------------------------------------
+Source builds can enable experimental DLSS Frame Generation through NVIDIA Streamline (MIT); its
+NVIDIA binaries come with NVIDIA's own licence and are not part of FrameGen's installer.
+
+Trademarks
+----------
+NVIDIA, RTX and DLSS are trademarks of NVIDIA Corporation. PlayStation is a trademark of Sony
+Interactive Entertainment. FrameGen is not affiliated with or endorsed by NVIDIA, Sony,
+Microsoft or any game publisher.

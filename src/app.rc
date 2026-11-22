@@ -1,0 +1,26 @@
+#include <winver.h>
+1 ICON "framegen.ico"
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION FG_VER_MAJOR,FG_VER_MINOR,FG_VER_PATCH,0
+ PRODUCTVERSION FG_VER_MAJOR,FG_VER_MINOR,FG_VER_PATCH,0
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904b0"
+    BEGIN
+      VALUE "CompanyName", "FrameGen"
+      VALUE "FileDescription", "FrameGen - frame generation for capture cards"
+      VALUE "FileVersion", FG_VERSION
+      VALUE "ProductName", "FrameGen"
+      VALUE "ProductVersion", FG_VERSION
+      VALUE "LegalCopyright", "MIT License"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1200
+  END
+END

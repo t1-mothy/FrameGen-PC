@@ -1,0 +1,14 @@
+build/
+build-debug/
+.vs/
+*.user
+release/
+out/
+dump*/
+third_party/
+build.log
+prof.txt
+b.sh
+*.png
+!docs/**/*.png
+dist/
