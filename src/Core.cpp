@@ -214,6 +214,7 @@ Options Options::parse(int argc, wchar_t** argv) {
         else if (k == "--simulate-slow") o.simulateSlowMs = num();
         else if (k == "--max-hz") o.maxHz = num();
         else if (k == "--quit-after") o.quitAfter = num();
+        else if (k == "--after-gpu-reset") o.afterGpuReset = true;
         else if (k == "--stress") { o.stress = num(); if (o.stress <= 0) o.stress = 60; }
         else if (k == "--windowed") o.windowed = true;
         else if (k == "--fullscreen") o.fullscreen = true;

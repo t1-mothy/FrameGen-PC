@@ -24,6 +24,11 @@ public:
     std::atomic<int> scaling{0};            // 0 fit, 1 fill, 2 stretch
     std::atomic<bool> vrr{false};           // present each frame when due (G-SYNC / FreeSync) instead of every refresh
     std::atomic<int> undrawable{0};
+    std::atomic<int> notReady{0};     // refreshes skipped because the swap chain wasn't ready
+    std::atomic<int> passedOver{0};   // frames never shown (the presenter fell behind)
+    std::atomic<int> shownLate{0};    // frames shown more than 1.5 refreshes after they were due
+    std::atomic<int> loops{0};        // presenter wake-ups (≈ refresh rate when keeping up)
+    std::atomic<bool> timed{false};   // presenting on a timer (refresh signal unreliable)
     std::atomic<int> generate{1};           // DLSS presenter: frames to generate per real frame
     double displayHz();                     // refresh rate of the window's monitor
     std::vector<int> displayRates();        // refresh rates the monitor offers at its current resolution
@@ -58,6 +63,13 @@ public:
     const char* kind() const override { return "d3d11"; }
 
 private:
+    UINT frameLatency_ = 1;
+    // Refresh-signal health (WaitForVBlank). Some setups (G-SYNC, a sleeping display, driver
+    // quirks) deliver it irregularly or not at all: then present on a steady timer instead.
+    double lastWake_ = 0, vblankWindowAt_ = 0;
+    int vblankCount_ = 0, badSeconds_ = 0;
+    bool timedMode_ = false;
+    double behindSince_ = 0;
     void run();
     void drawFrame(const GpuImage& img, int dw, int dh, const D3D11_RECT* scissor);
     bool resizeBuffers();

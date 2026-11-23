@@ -60,6 +60,12 @@ public:
 
     std::unique_lock<std::recursive_mutex> lock() { return std::unique_lock<std::recursive_mutex>(mtx_); }
 
+    /// The graphics driver reset or removed the device (TDR, driver update/crash). Logged once
+    /// with Windows' reason; the app then restarts itself (App::tick).
+    static bool isDeviceLost(HRESULT hr) { return hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET || hr == DXGI_ERROR_DEVICE_HUNG; }
+    void reportDeviceLost(const char* where, HRESULT hr);
+    std::atomic<bool> deviceLost{false};
+
     // Images
     ImagePtr makeImage(int w, int h, DXGI_FORMAT fmt);
     ImagePtr makeTexture(int w, int h, DXGI_FORMAT fmt, UINT bind);   // generic helper (no pool)

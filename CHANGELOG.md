@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.2.4
+- Fixed the remaining stutter on high-refresh displays: redrawing the frame already on screen
+  (dashboard / FPS counter updates, periodic refresh) emptied the frame queue, throwing away the
+  upcoming frames. Bug introduced in 1.2.1.
+
+## 1.2.3
+- A generated frame that arrives a few ms late is shown a refresh late instead of being skipped
+  (the skips were a stutter every ~0.3 s and 2x gave ~56 instead of 60 fps on 280 Hz). The
+  presenter only skips ahead when frames come faster than the display refreshes, or when it has
+  stayed a frame behind for more than 1/4 s (then it catches up once).
+- The 10 s log line also counts frames shown late.
+
+## 1.2.2
+- Variable refresh pacing no longer busy-spins (it woke millions of times per second and starved
+  frame generation): it sleeps until the next frame is due, checking every 2 ms.
+- V-Sync pacing checks that the display's refresh signal is regular; on setups where it isn't
+  (G-SYNC/FreeSync active, display quirks) it presents on a steady timer instead, and a refresh
+  wait that returns instantly can no longer spin.
+- After a graphics driver reset FrameGen logs Windows' reason and restarts itself once (a second
+  reset shows a message) instead of failing silently with a frozen picture.
+- Switching modes while NVIDIA VFG runs releases its CUDA interop safely (possible cause of the
+  GPU resets seen when changing multiplier).
+
+## 1.2.1
+- High-refresh displays (e.g. 240/280 Hz): generated frames are no longer lost when the GPU is
+  busy and a refresh is missed — a frame leaves the queue only once it's on screen, and frames are
+  shown in order unless the presenter falls more than ~1.5 refreshes behind. At 120 Hz and above
+  one extra frame may be queued (≤ 1 refresh of delay). Fixes 2× giving ~50 fps from 30.
+- FrameGen asks Windows for high GPU scheduling priority.
+- The 10 s log line also counts presenter wake-ups, skipped refreshes and frames never shown.
+
 ## 1.2.0
 - Frame generation up to 8× (dashboard: Off/2×/3×/4×/6×/8×; Settings and right-click menu: every
   step 2×–8×; M cycles 2×→3×→4×→6×→8×). DLSS-G caps to what the card allows (RTX 50: 6×).

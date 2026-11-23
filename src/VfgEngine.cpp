@@ -4,6 +4,7 @@
 #include <softpub.h>
 #include <wintrust.h>
 #include <filesystem>
+#include <functional>
 #include <mutex>
 #include <regex>
 
@@ -53,6 +54,7 @@ struct Api {
     Status(__cdecl* Load)(Handle) = nullptr;
     Status(__cdecl* Run)(Handle, int) = nullptr;
     Status(__cdecl* StreamCreate)(CUstream*) = nullptr;
+    Status(__cdecl* StreamSync)(CUstream) = nullptr;
     void(__cdecl* StreamDestroy)(CUstream) = nullptr;
     Status(__cdecl* GetVersion)(unsigned*) = nullptr;
     Status(__cdecl* ImgAlloc)(NvImg*, unsigned, unsigned, int, int, unsigned, unsigned, unsigned) = nullptr;
@@ -156,6 +158,7 @@ Api& api() {
                   get(a.ImgFromD3D11, cv, "NvCVImage_InitFromD3D11Texture") && get(a.ImgMap, cv, "NvCVImage_MapResource") &&
                   get(a.ImgUnmap, cv, "NvCVImage_UnmapResource") && get(a.ImgTransfer, cv, "NvCVImage_Transfer");
         get(a.GetVersion, fx, "NvVFX_GetVersion");
+        get(a.StreamSync, fx, "NvVFX_CudaStreamSynchronize");
         get(a.ErrorString, cv, "NvCV_GetErrorStringFromCode");
         if (!ok) { a.error = "This NVIDIA VFG runtime is a different version FrameGen doesn't understand."; return; }
         unsigned v = 0;
@@ -217,9 +220,17 @@ void VfgEngine::release() {
     if (!s_) return;
     auto& a = api();
     if (a.ok) {
+        // Let queued CUDA work finish (without holding the GPU lock), then unregister the shared
+        // Direct3D textures under the lock so no Direct3D work runs alongside — switching modes
+        // while VFG ran could otherwise end in a GPU reset.
+        if (s_->stream && a.StreamSync) a.StreamSync(s_->stream);
         if (s_->fx) a.DestroyEffect(s_->fx);
-        for (NvImg* im : {&s_->buf0, &s_->buf1, &s_->dst, &s_->tmp, &s_->inImg[0], &s_->inImg[1]}) a.ImgDealloc(im);
-        for (auto& im : s_->outImg) a.ImgDealloc(&im);
+        for (NvImg* im : {&s_->buf0, &s_->buf1, &s_->dst, &s_->tmp}) a.ImgDealloc(im);
+        {
+            auto l = Gpu::get().lock();
+            for (NvImg* im : {&s_->inImg[0], &s_->inImg[1]}) a.ImgDealloc(im);
+            for (auto& im : s_->outImg) a.ImgDealloc(&im);
+        }
         if (s_->stream) a.StreamDestroy(s_->stream);
     }
     delete s_;
@@ -283,6 +294,7 @@ bool VfgEngine::interpolate(const VideoFrame& prev, const VideoFrame& next, cons
                             std::vector<ImagePtr>& out, std::string& error) {
     if (!fatal_.empty()) { error = fatal_; return false; }
     auto& gpu = Gpu::get();
+    if (gpu.deviceLost) { error = "The graphics driver reset the GPU — restarting FrameGen."; return false; }
     ImagePtr A = prev.image, B = next.image;
     if (!A || !B || A->w != B->w || A->h != B->h || A->fmt != DXGI_FORMAT_R8G8B8A8_UNORM || B->fmt != DXGI_FORMAT_R8G8B8A8_UNORM) {
         error = "NVIDIA VFG: frames must be RGBA and the same size"; return false;
@@ -296,7 +308,11 @@ bool VfgEngine::interpolate(const VideoFrame& prev, const VideoFrame& next, cons
     if (hud) std::tie(A, B) = HudStabilizer::get().prepare(prev.image, next.image, next.motion);
     Status st = 0;
     auto cuda = [&](Status s, const char* what) { if (s != 0 && st == 0) { st = s; error = strf("NVIDIA VFG: %s failed: %s", what, a.err(s).c_str()); } return s == 0; };
+    static double lockHeld = 0, lockMax = 0, lockAt = 0; static int lockN = 0;
+    auto held = [&](double t0) { double d = hostNow() - t0; lockHeld += d; lockMax = std::max(lockMax, d); lockN++; };
     {
+        double t0 = hostNow();
+        struct H { std::function<void()> f; ~H() { f(); } } h{[&] { held(t0); }};
         auto l = gpu.lock();
         gpu.ctx->CopyResource(s_->inTex[0].Get(), A->tex.Get());
         gpu.ctx->CopyResource(s_->inTex[1].Get(), B->tex.Get());
@@ -306,7 +322,7 @@ bool VfgEngine::interpolate(const VideoFrame& prev, const VideoFrame& next, cons
     if (st == 0) {
         cuda(a.ImgTransfer(&s_->inImg[0], &s_->buf0, 1.f, s_->stream, &s_->tmp), "copy in") &&
             cuda(a.ImgTransfer(&s_->inImg[1], &s_->buf1, 1.f, s_->stream, &s_->tmp), "copy in");
-        { auto l = gpu.lock(); a.ImgUnmap(&s_->inImg[0], s_->stream); a.ImgUnmap(&s_->inImg[1], s_->stream); }
+        { double t0 = hostNow(); auto l = gpu.lock(); a.ImgUnmap(&s_->inImg[0], s_->stream); a.ImgUnmap(&s_->inImg[1], s_->stream); held(t0); }
     }
     if (st == 0) {
         a.SetImage(s_->fx, kIn0, &s_->buf0);
@@ -314,11 +330,12 @@ bool VfgEngine::interpolate(const VideoFrame& prev, const VideoFrame& next, cons
         for (size_t i = 0; i < phases.size() && st == 0; i++) {
             a.SetF32(s_->fx, kTimestep, std::clamp(phases[i], 0.01f, 0.99f));
             if (!cuda(a.Run(s_->fx, 1), "generating")) break;
-            { auto l = gpu.lock(); if (!cuda(a.ImgMap(&s_->outImg[i], s_->stream), "map")) break; }
+            { double t0 = hostNow(); auto l = gpu.lock(); bool ok = cuda(a.ImgMap(&s_->outImg[i], s_->stream), "map"); held(t0); if (!ok) break; }
             cuda(a.ImgTransfer(&s_->dst, &s_->outImg[i], 1.f, s_->stream, &s_->tmp), "copy out");
-            { auto l = gpu.lock(); a.ImgUnmap(&s_->outImg[i], s_->stream); }   // D3D11 work after this waits for CUDA
+            { double t0 = hostNow(); auto l = gpu.lock(); a.ImgUnmap(&s_->outImg[i], s_->stream); held(t0); }   // D3D11 work after this waits for CUDA
         }
     }
+    if (getenv("FG_TRACE") && hostNow() - lockAt > 1) { logf("[vfg] interop holds the GPU lock: avg %.2f ms, max %.2f ms (%d holds)", lockHeld / std::max(lockN, 1) * 1000, lockMax * 1000, lockN); lockHeld = lockMax = 0; lockN = 0; lockAt = hostNow(); }
     if (st != 0) return false;
     {
         auto l = gpu.lock();

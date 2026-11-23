@@ -119,6 +119,7 @@ private:
     bool shotDone_ = false;
     double lastMouseMove_ = 0;
     bool cursorHidden_ = false;
+    bool deviceLostHandled_ = false;
 };
 
 extern App* g_app;

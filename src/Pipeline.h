@@ -32,6 +32,19 @@ public:
     std::pair<FramePtr, FramePtr> take(double contentTime);
     /// The earliest queued frame newer than `t` (removed from the queue), discarding older ones.
     FramePtr popAfter(double t);
+    /// The frame to show at contentTime without removing anything: the oldest due frame that is
+    /// at most `maxBehind` seconds late (the newest due frame if all are), so a late frame is shown
+    /// a little late instead of being lost.
+    /// Returns the current frame if nothing new is due.
+    /// When frames are spaced closer than `period` (more frames than the display can show),
+    /// only 1.5 periods of lag are allowed, whatever maxBehind says.
+    /// `due` (optional) receives how many queued frames are due.
+    std::pair<FramePtr, FramePtr> peek(double contentTime, double maxBehind, double period, int* due = nullptr);
+    /// The frame from peek() was shown: drop it and everything before it. Returns how many
+    /// queued frames were passed over without being shown.
+    int commit(const FramePtr& shown);
+    /// Content time of the next frame not yet shown (< 0: none queued).
+    double nextTime();
     void clear();
 private:
     std::mutex m_;

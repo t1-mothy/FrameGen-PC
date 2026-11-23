@@ -161,7 +161,11 @@ ImagePtr Gpu::makeTexture(int w, int h, DXGI_FORMAT fmt, UINT bind) {
     td.Width = w; td.Height = h; td.MipLevels = 1; td.ArraySize = 1; td.Format = fmt;
     td.SampleDesc.Count = 1; td.Usage = D3D11_USAGE_DEFAULT; td.BindFlags = bind;
     HRESULT hr = dev->CreateTexture2D(&td, nullptr, &img->tex);
-    if (FAILED(hr)) { logf("[gpu] CreateTexture2D %dx%d fmt %d failed: %s", w, h, int(fmt), hr2str(hr).c_str()); return nullptr; }
+    if (FAILED(hr)) {
+        if (isDeviceLost(hr)) reportDeviceLost("texture", hr);
+        else logf("[gpu] CreateTexture2D %dx%d fmt %d failed: %s", w, h, int(fmt), hr2str(hr).c_str());
+        return nullptr;
+    }
     if (fmt == DXGI_FORMAT_NV12) {
         D3D11_SHADER_RESOURCE_VIEW_DESC sd{}; sd.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D; sd.Texture2D.MipLevels = 1;
         sd.Format = DXGI_FORMAT_R8_UNORM; dev->CreateShaderResourceView(img->tex.Get(), &sd, &img->srv[0]);
@@ -177,6 +181,12 @@ ImagePtr Gpu::makeTexture(int w, int h, DXGI_FORMAT fmt, UINT bind) {
         if (bind & D3D11_BIND_RENDER_TARGET) dev->CreateRenderTargetView(img->tex.Get(), nullptr, &img->rtv[0]);
     }
     return img;
+}
+
+void Gpu::reportDeviceLost(const char* where, HRESULT hr) {
+    if (deviceLost.exchange(true)) return;   // log once
+    HRESULT reason = dev ? dev->GetDeviceRemovedReason() : hr;
+    logf("[gpu] the graphics driver reset the GPU (%s: %s; reason: %s)", where, hr2str(hr).c_str(), hr2str(reason).c_str());
 }
 
 ImagePtr Gpu::makeImage(int w, int h, DXGI_FORMAT fmt) {

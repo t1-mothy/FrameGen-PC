@@ -112,6 +112,7 @@ struct Options {
     std::optional<int> mult;           // --mult
     bool audio = true;
     bool listDevices = false, bench = false, checkColors = false, checkHud = false, checkQuality = false;
+    bool afterGpuReset = false;   // started again by FrameGen after a GPU reset
     std::string dumpDir, realDir, liveDumpDir, snapPath, logFile, uiShot;
     double quitAfter = 0;
     double stress = 0;   // --stress <seconds>

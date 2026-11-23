@@ -73,6 +73,15 @@ static int appMain(int argc, wchar_t** argv, int show) {
         MessageBoxW(nullptr, L"FrameGen needs a graphics card with DirectX 11 support, and a current graphics driver.", L"FrameGen", MB_ICONERROR);
         return 1;
     }
+    // Higher GPU scheduling priority for this process (frame generation competes with Windows'
+    // compositor and other apps for the GPU). High needs no administrator rights.
+    if (!getenv("FG_GPU_PRIORITY_NORMAL")) {
+        using SetClass = LONG(APIENTRY*)(HANDLE, int);
+        if (auto fn = (SetClass)GetProcAddress(GetModuleHandleW(L"gdi32.dll"), "D3DKMTSetProcessSchedulingPriorityClass")) {
+            LONG st = fn(GetCurrentProcess(), 4 /* D3DKMT_SCHEDULINGPRIORITYCLASS_HIGH */);
+            logf("[app] GPU priority high: %s", st == 0 ? "yes" : strf("no (0x%08lx)", st).c_str());
+        }
+    }
     if (!getenv("FG_NO_DLSS")) DlssG::checkInBackground();   // ~1 s; finished before anyone needs it
     int rc;
     if (g_opt.listDevices) rc = runListDevices();
@@ -85,8 +94,19 @@ static int appMain(int argc, wchar_t** argv, int show) {
     else if (g_opt.stress > 0) rc = runStress(g_opt.stress);
     else if (g_opt.checkDlss) rc = DlssG::runCheck();
     else {
-        App app;
-        rc = app.run(GetModuleHandleW(nullptr), show);
+        {
+            App app;
+            rc = app.run(GetModuleHandleW(nullptr), show);
+        }
+        // After a GPU reset: start a fresh FrameGen once this one has released the capture card.
+        extern bool g_relaunchAfterExit;
+        if (g_relaunchAfterExit) {
+            std::wstring cmd = GetCommandLineW();
+            if (cmd.find(L"--after-gpu-reset") == std::wstring::npos) cmd += L" --after-gpu-reset";
+            STARTUPINFOW si{sizeof si}; PROCESS_INFORMATION pi{};
+            if (CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi)) { CloseHandle(pi.hThread); CloseHandle(pi.hProcess); }
+            else logf("[app] couldn't restart FrameGen (error %lu)", GetLastError());
+        }
     }
     timeEndPeriod(1);
     MFShutdown();

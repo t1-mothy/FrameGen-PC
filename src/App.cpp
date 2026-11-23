@@ -774,7 +774,25 @@ void App::openPrivacySettings(const wchar_t* page) { ShellExecuteW(nullptr, L"op
 
 // ------------------------------------------------------------------ Tick & dashboard
 
+bool g_relaunchAfterExit = false;
+
 void App::tick() {
+    // The graphics driver reset the GPU: every Direct3D object is gone. Restart FrameGen (once —
+    // if it happens again right after, say so instead of looping).
+    if (const char* f = getenv("FG_FAKE_GPU_RESET"); f && !g_opt.afterGpuReset && hostNow() - startTime_ > atof(f)) Gpu::get().reportDeviceLost("test", DXGI_ERROR_DEVICE_HUNG);   // test aid
+    if (Gpu::get().deviceLost && !deviceLostHandled_) {
+        deviceLostHandled_ = true;
+        if (!g_opt.afterGpuReset) {
+            logf("[app] restarting FrameGen after the GPU reset");
+            g_relaunchAfterExit = true;
+            PostMessageW(hwnd, WM_CLOSE, 0, 0);
+        } else {
+            MessageBoxW(hwnd, L"The graphics driver reset the GPU again, so FrameGen stopped.\n\nUpdate your graphics driver, and try a lower multiplier or VFG quality \"Fast\". FrameGen.log has the details (Settings › Interface › Open logs folder).",
+                        L"FrameGen", MB_ICONWARNING);
+            PostMessageW(hwnd, WM_CLOSE, 0, 0);
+        }
+        return;
+    }
     audio.targetDelay = renderer->delay.load();
     auto s = stats.snapshot();
     updateDisplayCap(s);
@@ -912,7 +930,8 @@ void App::logStats() {
     auto ts = pipeline->dedupe.tileStats();
     extra += strf(" | maxTile repeats max %.2f · uniques min %.2f | forced %d", ts.first.empty() ? -1.0 : ts.first.back(), ts.second.empty() ? -1.0 : ts.second.front(), stats.forced.load());
     auto j = pipeline->cadence.jitter();
-    extra += strf(" | undrawable %d", renderer->undrawable.load());
+    extra += strf(" | undrawable %d | presenter%s: wakes %d, not ready %d, frames passed over %d, shown late %d", renderer->undrawable.load(), renderer->timed ? " (timed)" : "",
+                  renderer->loops.exchange(0), renderer->notReady.exchange(0), renderer->passedOver.exchange(0), renderer->shownLate.exchange(0));
     extra += strf(" | cadence %.2f ms, jitter raw %.2f -> %.2f ms | display cap %s", pipeline->cadence.interval() * 1000, j.first, j.second,
                   displayCap ? strf("%dx", *displayCap).c_str() : "none");
     extra += strf(" | audio buf %.0f ms target %.0f ms (out lat %.0f) underruns %d in %s", audio.bufferedSeconds() * 1000,

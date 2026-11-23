@@ -158,14 +158,42 @@ void Renderer::run() {
         if (resizePending_) { resizeBuffers(); justResized_ = true; }
         bool useVrr = vrr && gpu.tearingSupported;
         double hz = displayHz(), period = 1.0 / std::max(hz, 1.0);
+        // At high refresh rates allow one more queued frame (≤ 1 refresh of extra delay, e.g. 3.6 ms
+        // at 280 Hz): otherwise a GPU busy generating frames often isn't done with the previous
+        // present within the short window and the refresh is skipped.
+        if (UINT want = hz >= 119 ? 2u : 1u; want != frameLatency_) { swap_->SetMaximumFrameLatency(want); frameLatency_ = want; }
         double tw0 = hostNow();
-        if (!useVrr) {
+        if (!timedMode_ && getenv("FG_TIMED")) { timedMode_ = true; timed = true; }   // test aid
+        if (!useVrr && !timedMode_) {
             // Wake on every vblank (no GPU work), but draw and present only when the picture
             // changes: presenting every refresh of a 240–280 Hz panel makes the GPU switch to the
             // compositor that often, which more than doubles the cost of frame generation.
             if (!output_ || tw0 - outputAt_ > 1.0) { output_.Reset(); swap_->GetContainingOutput(&output_); outputAt_ = tw0; }
             if (!output_ || FAILED(output_->WaitForVBlank())) Sleep(4);
+            double t = hostNow();
+            // A vblank wait that returns at once must never turn this loop into a busy spin.
+            if (t - lastWake_ < 0.4 * period) { preciseSleepUntil(lastWake_ + period); t = hostNow(); }
+            // Health check: refresh signals per second should match the display's rate. With
+            // G-SYNC/FreeSync active the panel follows the app instead, and waiting for its
+            // refresh loses frames — after 2 bad seconds present on a steady timer.
+            vblankCount_++;
+            if (vblankWindowAt_ == 0) vblankWindowAt_ = t;
+            if (t - vblankWindowAt_ >= 1.0) {
+                double rate = vblankCount_ / (t - vblankWindowAt_);
+                badSeconds_ = (rate < 0.8 * hz || rate > 1.3 * hz) ? badSeconds_ + 1 : 0;
+                if (badSeconds_ >= 2) {
+                    timedMode_ = true; timed = true;
+                    logf("[present] the display's refresh signal is irregular (%.0f per second, display %.0f Hz — G-SYNC/FreeSync?): presenting on a steady timer instead", rate, hz);
+                }
+                vblankCount_ = 0; vblankWindowAt_ = t;
+            }
+        } else if (!useVrr) {
+            // Timed mode: wake once per refresh period on a steady timeline.
+            double next = lastWake_ + period;
+            if (next < tw0 - period) next = tw0;   // catch up after a stall instead of bursting
+            preciseSleepUntil(next);
         }
+        if (!useVrr) lastWake_ = hostNow();
         double tw1 = hostNow();
         double now = hostNow();
 
@@ -174,8 +202,16 @@ void Renderer::run() {
         double target = now + period;
         if (lastTarget > 0 && std::abs(target - (lastTarget + period)) < period * 0.5) target = lastTarget + period;
         if (useVrr) {
-            // VRR: the display follows us. Present each new frame when it's due (re-present at ≥ 40 Hz).
-            preciseSleepUntil(std::max(now, lastPresent + 1.0 / std::max(1.0, maxHz > 0 ? maxHz.load() : hz)));
+            // VRR: the display follows us. Sleep until the next frame is due (re-present at ≥ 40 Hz,
+            // never faster than the display allows), checking at least every 2 ms for new frames —
+            // never spin.
+            double minGap = 1.0 / std::max(1.0, maxHz > 0 ? maxHz.load() : hz);
+            double next = pipeline_.output.nextTime();
+            double wake = lastPresent + 0.025;
+            if (next >= 0) wake = std::min(wake, next + double(delay));
+            wake = std::max(wake, lastPresent + minGap);
+            wake = std::min(wake, now + 0.002);
+            if (wake > now) preciseSleepUntil(wake);
             now = hostNow(); target = now + 0.001;
         }
         lastTarget = target;
@@ -188,8 +224,29 @@ void Renderer::run() {
         delay = d;
         stats_.pipelineDelayMs = d * 1000;
 
-        auto [shown, real] = pipeline_.output.take(target - d);
+        // A frame leaves the queue only once it's on screen (commit below): if this refresh is
+        // skipped, it's shown at the next one instead of being lost.
+        // Every frame is shown in order, even a few ms late (a generated frame that arrives with
+        // the next one would otherwise be skipped — a visible stutter, ~56 instead of 60 fps).
+        // The display refreshes far more often than frames arrive, so it catches up within a
+        // refresh or two; skip only when hopelessly behind.
+        static const double maxBehind = getenv("FG_MAX_BEHIND") ? atof(getenv("FG_MAX_BEHIND")) : 0.1;
+        int due = 0;
+        auto [shown, real] = pipeline_.output.peek(target - d, std::max(maxBehind, 1.5 * period), period, &due);
+        // A frame behind for more than ¼ s (two frames due at once, every time — frames arrive as
+        // fast as the display refreshes, so it can't catch up by itself): skip ahead once instead
+        // of staying a frame late. A one-off late frame is still shown.
+        if (shown && shown != lastShown_ && due >= 2) {
+            if (behindSince_ == 0) behindSince_ = now;
+            else if (now - behindSince_ > 0.25) {
+                std::tie(shown, real) = pipeline_.output.peek(target - d, 0.5 * period, period);
+                behindSince_ = 0;
+            }
+        } else if (shown != lastShown_) {
+            behindSince_ = 0;
+        }
         FramePtr frame = shown;
+        loops++;
         if (frame && (!frame->image || frame->image->isNV12() || !frame->image->srv[0])) {   // never present a frame we can't draw
             undrawable++;
             frame = lastDrawable_;
@@ -209,8 +266,13 @@ void Renderer::run() {
         // capture and the UI. If none is free yet, try again at the next refresh.
         // Wait briefly (the previous frame is usually released right at this vblank) rather than
         // skipping the refresh — skipping halved the frame rate when output = refresh rate.
-        if (!useVrr && WaitForSingleObjectEx(waitable_, DWORD(std::clamp(period * 700.0, 1.0, 8.0)), FALSE) != WAIT_OBJECT_0) continue;
+        if (!useVrr && WaitForSingleObjectEx(waitable_, DWORD(std::clamp(period * 700.0, 1.0, 8.0)), FALSE) != WAIT_OBJECT_0) { notReady++; continue; }
         if (useVrr) WaitForSingleObjectEx(waitable_, 50, FALSE);
+        if (shown && shown != lastShown_) {
+            passedOver += pipeline_.output.commit(shown);
+            if (shown != lastShown_ && shown->time + d < target - 1.5 * period) shownLate++;
+            if (getenv("FG_TRACE_PRESENT") && shown != lastShown_) { static int n; if (n++ % 15 == 0) logf("[trace] show: due %.1f ms ago (content %.3f, now %.3f, target %.3f, delay %.1f ms, next queued %.3f)", (target - d - shown->time) * 1000, shown->time, now, target, d * 1000, pipeline_.output.nextTime()); }
+        }
         lastOvVersion_ = ovv; lastScaling_ = sc; lastCompare_ = cmp; justResized_ = false;
         if (frame && frame != lastShown_) { stats_.recordPresent(target); lastShown_ = frame; }
 
@@ -282,7 +344,10 @@ void Renderer::run() {
             prof_[0] = prof_[1] = prof_[2] = prof_[3] = 0; profAt_ = tp1;
         }
         if (hr == DXGI_STATUS_OCCLUDED) Sleep(10);
-        else if (FAILED(hr)) { logf("[present] Present failed: %s", hr2str(hr).c_str()); Sleep(50); }
+        else if (FAILED(hr)) {
+            if (Gpu::isDeviceLost(hr)) { gpu.reportDeviceLost("present", hr); Sleep(100); }
+            else { logf("[present] Present failed: %s", hr2str(hr).c_str()); Sleep(50); }
+        }
         lastPresent = hostNow();
     }
     if (av) AvRevertMmThreadCharacteristics(av);

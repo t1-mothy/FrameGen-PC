@@ -59,6 +59,43 @@ std::pair<FramePtr, FramePtr> FrameQueue::take(double contentTime) {
     }
     return {current_, latestReal_};
 }
+std::pair<FramePtr, FramePtr> FrameQueue::peek(double contentTime, double maxBehind, double period, int* dueOut) {
+    std::lock_guard<std::mutex> l(m_);
+    size_t due = 0;
+    while (due < frames_.size() && frames_[due]->time <= contentTime) due++;
+    if (dueOut) *dueOut = int(due);
+    if (due == 0) return {current_, latestReal_};
+    if (due >= 2 && frames_[1]->time - frames_[0]->time < 0.9 * period) maxBehind = std::min(maxBehind, 1.5 * period);
+    // The oldest due frame that isn't more than maxBehind late (always keep the newest due one).
+    size_t i = 0;
+    while (i + 1 < due && contentTime - frames_[i]->time > maxBehind) i++;
+    FramePtr real = latestReal_;
+    for (size_t k = 0; k <= i; k++) if (!frames_[k]->isGenerated) real = frames_[k];
+    return {frames_[i], real};
+}
+
+double FrameQueue::nextTime() {
+    std::lock_guard<std::mutex> l(m_);
+    return frames_.empty() ? -1.0 : frames_.front()->time;
+}
+
+int FrameQueue::commit(const FramePtr& shown) {
+    std::lock_guard<std::mutex> l(m_);
+    // A redraw of the frame already on screen (overlay update, periodic refresh): that frame left
+    // the queue earlier — remove nothing. (Popping until "found" here emptied the whole queue,
+    // upcoming frames included: the stutter on high-refresh displays.)
+    if (std::find(frames_.begin(), frames_.end(), shown) == frames_.end()) return 0;
+    int skipped = 0;
+    while (!frames_.empty()) {
+        FramePtr f = frames_.front(); frames_.pop_front();
+        if (!f->isGenerated) latestReal_ = f;
+        if (f == shown) { current_ = f; return skipped; }
+        skipped++;
+    }
+    current_ = shown;
+    return skipped;
+}
+
 FramePtr FrameQueue::popAfter(double t) {
     std::lock_guard<std::mutex> l(m_);
     while (!frames_.empty() && frames_.front()->time <= t) frames_.pop_front();
