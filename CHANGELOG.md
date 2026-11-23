@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0
+- Frame generation up to 8× (dashboard: Off/2×/3×/4×/6×/8×; Settings and right-click menu: every
+  step 2×–8×; M cycles 2×→3×→4×→6×→8×). DLSS-G caps to what the card allows (RTX 50: 6×).
+  Automatic step-down goes 8× → 6× → 4× → 3× → 2×.
+- When the display can't show more frames, the dashboard says so and offers "Generate anyway".
+- FrameGen.log records the PC (GPU, display rate), the settings, every generation change with the
+  reason for any limit, and a status line every 10 s — for troubleshooting on other PCs.
+- Fixed a refresh-rate tip that appeared for 59.94 Hz displays.
+
 ## 1.1.0
 - NVIDIA DLSS Frame Generation is a regular engine ("NVIDIA DLSS FG", key D), included in the
   installer. It was experimental because of GPU resets that turned out to be a hardware fault on

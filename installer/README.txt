@@ -19,7 +19,7 @@ Controls
 --------
 Everything is on the dashboard and in the right-click menu. Keys:
   H  show/hide the dashboard      F  full screen (Esc to leave)
-  M  2x / 3x / 4x                 0  frame generation off
+  M  2x / 3x / 4x / 6x / 8x       0  frame generation off
   V  NVIDIA VFG   D  NVIDIA DLSS FG   2  Low latency  3  Smoothest
   C  compare original/generated   U  HUD & text stabiliser
   Ctrl+,  Settings                Ctrl+M  mute

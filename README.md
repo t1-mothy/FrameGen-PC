@@ -9,7 +9,7 @@ simple dashboard (H), same Settings, same automatic behaviour.
 
 ## Features
 
-- **2× / 3× / 4× frame generation**, with a choice of engine:
+- **2× – 8× frame generation**, with a choice of engine:
   - **NVIDIA VFG** (RTX 40/50): NVIDIA's AI video frame generation, included in the installer. It
     gives the cleanest picture on fast camera movement (≈ 3 ms per frame at 1080p on a current RTX
     GPU). See [docs/VFG.md](docs/VFG.md).
@@ -64,7 +64,7 @@ for the test tools). No other dependencies; shaders compile at runtime.
 
 Plug in the capture card and start FrameGen — it picks the card, the best capture mode and your
 saved settings. Everything is on the dashboard and the right-click menu. Keys: **H** shows/hides
-the dashboard, **F** full screen, **M** cycles 2×/3×/4×, **0** off, **2** Low latency, **3** Smoothest,
+the dashboard, **F** full screen, **M** cycles 2×/3×/4×/6×/8×, **0** off, **2** Low latency, **3** Smoothest,
 **V** NVIDIA VFG, **D** NVIDIA DLSS FG, **C** compare original vs generated, **U** HUD stabilisation, **Ctrl+,** Settings.
 
 If Windows blocks the camera ("Camera access needed"), turn on *Let desktop apps access your camera*

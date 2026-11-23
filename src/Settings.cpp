@@ -106,7 +106,7 @@ void SettingsWindow::build() {
 
     // Frame Generation
     y = 56;
-    label(1, L"Frame generation:", y); add(1, WC_COMBOBOXW, L"", combo, 168, y, 200, 200, kMult); y += 34;
+    label(1, L"Frame generation:", y); add(1, WC_COMBOBOXW, L"", combo, 168, y, 200, 300, kMult); y += 34;
     label(1, L"Mode:", y); add(1, WC_COMBOBOXW, L"", combo, 168, y, 240, 200, kEngine); y += 32;
     y = note(1, L"Low latency responds fastest. Smoothest searches motion more carefully for every generated frame. NVIDIA VFG (AI) gives the cleanest picture on fast camera movement. NVIDIA DLSS FG uses DLSS Frame Generation (works while this window is focused). Both need an RTX 40/50.", y);
     label(1, L"VFG quality:", y); add(1, WC_COMBOBOXW, L"", combo, 168, y, 240, 200, kVfgModel); y += 32;
@@ -143,12 +143,13 @@ void SettingsWindow::build() {
     y = 56;
     label(4, L"Dashboard position:", y); add(4, WC_COMBOBOXW, L"", combo, 168, y, 200, 200, kCorner); y += 34;
     add(4, L"BUTTON", L"Show a small FPS counter when the dashboard is hidden", check, 168, y, 360, 22, kMini); y += 32;
-    y = note(4, L"Right-click the picture for every quick option. Press H (or click the small FPS counter) to show or hide the dashboard — its controls work with the mouse. Keys: F full screen, C compare, U HUD stabilisation, M 2×/3×/4×, 0 off, 2 Low latency, 3 Smoothest, V NVIDIA VFG, D NVIDIA DLSS FG.", y);
+    y = note(4, L"Right-click the picture for every quick option. Press H (or click the small FPS counter) to show or hide the dashboard — its controls work with the mouse. Keys: F full screen, C compare, U HUD stabilisation, M 2×/3×/4×/6×/8×, 0 off, 2 Low latency, 3 Smoothest, V NVIDIA VFG, D NVIDIA DLSS FG.", y);
     add(4, L"STATIC", widen(std::string("FrameGen ") + FG_VERSION), SS_LEFT, 168, y + 4, 200, 20);
     add(4, L"BUTTON", L"Open logs folder", BS_PUSHBUTTON | WS_TABSTOP, 384, y, 140, 26, kLogs);
 
     auto fill = [&](int id, std::initializer_list<const wchar_t*> items) { for (auto* s : items) SendMessageW(byId_[id], CB_ADDSTRING, 0, (LPARAM)s); };
-    fill(kMult, {L"Off", L"2× (e.g. 30 → 60 fps)", L"3× (e.g. 30 → 90 fps)", L"4× (e.g. 30 → 120 fps)"});
+    fill(kMult, {L"Off", L"2× (e.g. 30 → 60 fps)", L"3× (e.g. 30 → 90 fps)", L"4× (e.g. 30 → 120 fps)", L"5× (e.g. 30 → 150 fps)",
+                 L"6× (e.g. 30 → 180 fps)", L"7× (e.g. 30 → 210 fps)", L"8× (e.g. 30 → 240 fps)"});
     fill(kVfgModel, {L"Fast (lowest delay)", L"Balanced", L"Best quality (2× / 3×)"});
     fill(kScaling, {L"Fit", L"Fill", L"Stretch"});
     fill(kRefresh, {L"Display maximum", L"240 Hz", L"144 Hz", L"120 Hz", L"60 Hz"});
@@ -196,7 +197,7 @@ void SettingsWindow::refresh() {
     EnableWindow(byId_[kRate], !app_.currentDevice.empty());
     SetWindowTextW(byId_[kActive], widen(app_.activeFormatDescription()).c_str());
 
-    SendMessageW(byId_[kMult], CB_SETCURSEL, std::clamp(app_.multiplier - 1, 0, 3), 0);
+    SendMessageW(byId_[kMult], CB_SETCURSEL, std::clamp(app_.multiplier - 1, 0, 7), 0);
     // Modes this PC can run (NVIDIA VFG appears once its runtime is found).
     HWND eng = byId_[kEngine];
     SendMessageW(eng, CB_RESETCONTENT, 0, 0);

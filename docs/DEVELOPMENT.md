@@ -63,6 +63,10 @@ refined to full resolution.
 | `--check-real` console gameplay: block grid (1.00 = none) | 1.014 | 1.020 | — |
 | `--check-real` console gameplay: PSNR vs NVIDIA VFG | 32.0 dB | 32.3 dB | — |
 
+At 8× (`FG_MULTS=1 --bench`): Low latency 10.4 ms, Smoothest 16.8 ms, NVIDIA VFG Fast 5.7 ms /
+Balanced 16.5 ms — all within a 30 fps game's 33 ms. VFG costs the same per generated frame in
+timestep and multiplier mode (measured), so FrameGen uses timestep mode.
+
 NVIDIA VFG (Balanced): `--bench` 3.1 ms at 2×, 8.2 ms at 4×. `--check-quality`: action 40.4 dB,
 pan 30.9 dB. On the gameplay pairs its block grid is 1.007. Before soft blending, the
 dominant-motion candidates and the 5×5 neighbourhood, our engine scored grid 1.032 and 31.4 dB vs
@@ -130,6 +134,14 @@ anywhere else). The app logs each run to `%LOCALAPPDATA%\FrameGen\FrameGen.log` 
 `FrameGen.previous.log`) and writes a minidump there on a crash. CI (`.github/workflows/build.yml`)
 builds the app and an installer without NVIDIA VFG. Test aids: `FG_VFG_NOGPU=1` (behave like a
 GPU without VFG support), `FG_VFG_ANYGPU=1`.
+
+## Diagnostics
+
+FrameGen.log (`%LOCALAPPDATA%\FrameGen`) always has: `[env]` lines (GPU, VRAM, display rate,
+settings, VFG availability), `[app] generation: <mode> N× requested, M× used (display/auto limit)`
+on every change, `[app] notes:` when a limit note changes, and a `[stats]` line every 10 s (every
+second with `--log`). The display limit (`displayCapEnabled`) holds output at the refresh rate —
+frames beyond it are never shown; DLSS-G paces itself and may report more.
 
 ## Mouse
 

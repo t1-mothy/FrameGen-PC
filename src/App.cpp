@@ -25,7 +25,7 @@ App::App() {
     engine = EngineSupport::best(p.engine()).value_or(EngineKind::Fast);
     // First run on a PC with NVIDIA VFG: it gives the cleanest picture, so start with it.
     if (p.str("engine", "").empty() && EngineSupport::isSupported(EngineKind::Vfg)) engine = EngineKind::Vfg;
-    multiplier = EngineSupport::any() ? p.multiplier() : 1;
+    multiplier = EngineSupport::any() ? std::clamp(p.multiplier(), 1, 8) : 1;
     dashboardVisible = p.dashboardVisible();
     miniCounterOn = p.miniCounter();
     g_hudLock = g_opt.hudLock && p.hudStabilizer();
@@ -145,7 +145,8 @@ int App::run(HINSTANCE inst, int show) {
     audio.start();
     startInitialSource();
     SetTimer(hwnd, kTimerTick, 250, nullptr);
-    if (g_opt.log) SetTimer(hwnd, kTimerLog, 1000, nullptr);
+    SetTimer(hwnd, kTimerLog, g_opt.log ? 1000 : 10000, nullptr);   // FrameGen.log: a status line every 10 s (for troubleshooting)
+    logEnvironment();
     if (g_opt.cycleModes) SetTimer(hwnd, kTimerCycle, 3000, nullptr);
     if (!g_opt.uiShot.empty() && !dashboardVisible) { dashboardVisible = true; }   // the shot shows the dashboard; saved setting untouched
     if (const char* s = getenv("FG_SETTINGS_SHOT")) {   // test aid: snapshot each Settings tab as PNG
@@ -287,7 +288,7 @@ bool App::handleKey(WPARAM vk) {
     case '3': setEngine(EngineKind::Quality); if (multiplier <= 1) setMultiplier(2); return true;
     case 'D': setEngine(EngineKind::DlssG); if (multiplier <= 1) setMultiplier(2); return true;
     case 'V': setEngine(EngineKind::Vfg); if (multiplier <= 1) setMultiplier(2); return true;
-    case 'M': { int next[] = {2, 2, 3, 4, 2}; setMultiplier(next[std::clamp(multiplier, 1, 4)]); return true; }
+    case 'M': { static const int next[] = {2, 2, 3, 4, 6, 6, 8, 8, 2}; setMultiplier(next[std::clamp(multiplier, 1, 8)]); return true; }
     case 'C': renderer->compare = !renderer->compare; syncControls(); return true;
     case 'U': setHudLock(!g_hudLock); return true;
     case 'F': case VK_F11: toggleFullscreen(); return true;
@@ -576,6 +577,9 @@ bool App::ensurePresenter() {
 
 void App::applyGeneration() {
     int m = effectiveMultiplier();
+    logf("[app] generation: %s %d× requested, %d× used%s%s%s", engineShortLabel(effectiveEngine()), multiplier, m,
+         autoCap ? strf(" (auto limit %d×)", *autoCap).c_str() : "", displayCap ? strf(" (display limit %d×)", *displayCap).c_str() : "",
+         engineBlocked() ? (" — " + engineBlockReason()).c_str() : "");
     bool dlss = m > 1 && effectiveEngine() == EngineKind::DlssG && EngineSupport::isSupported(EngineKind::DlssG);
     pipeline->wantMotion = dlss;
     if (m <= 1 || !EngineSupport::any() || dlss || engineBlocked()) pipeline->configure(EngineKind::Off, std::max(m, 2));
@@ -591,7 +595,7 @@ void App::applyGeneration() {
 void App::clearAuto() { autoCap.reset(); autoEngine.reset(); autoOff = false; autoNote.clear(); lastAdjust = hostNow(); }
 
 void App::setMultiplier(int m) {
-    multiplier = EngineSupport::any() ? m : 1;
+    multiplier = EngineSupport::any() ? std::clamp(m, 1, 8) : 1;
     Prefs::get().set("multiplier", multiplier);
     clearAuto();
     applyGeneration();
@@ -653,11 +657,11 @@ std::vector<Dashboard::EngineChoice> App::engineChoices() {
 
 /// Right-click menu: every quick control, for mouse users (also with the dashboard hidden).
 void App::showContextMenu(POINT screen) {
-    enum { kOff = 1, kM2, kM3, kM4, kHud = 10, kCmp, kFull, kDash, kSet, kMuteId, kEng = 100 };
+    enum { kOff = 1, kM8 = 8, kHud = 10, kCmp, kFull, kDash, kSet, kMuteId, kEng = 100 };
     HMENU m = CreatePopupMenu(), gen = CreatePopupMenu(), mode = CreatePopupMenu();
     int em = effectiveMultiplier();
     AppendMenuW(gen, MF_STRING | (multiplier <= 1 ? MF_CHECKED : 0), kOff, L"Off");
-    for (int i = 2; i <= 4; i++) AppendMenuW(gen, MF_STRING | (multiplier == i ? MF_CHECKED : 0) | (EngineSupport::any() ? 0 : MF_GRAYED), kOff + i - 1, widen(strf("%d×", i)).c_str());
+    for (int i = 2; i <= 8; i++) AppendMenuW(gen, MF_STRING | (multiplier == i ? MF_CHECKED : 0) | (EngineSupport::any() ? 0 : MF_GRAYED), kOff + i - 1, widen(strf("%d×", i)).c_str());
     auto choices = engineChoices();
     Dashboard::appendEngineItems(mode, choices, engine, kEng);
     AppendMenuW(m, MF_POPUP, (UINT_PTR)gen, widen(multiplier > 1 ? strf("Frame generation: %d×", multiplier) : std::string("Frame generation: Off")).c_str());
@@ -672,7 +676,7 @@ void App::showContextMenu(POINT screen) {
     AppendMenuW(m, MF_STRING, kSet, L"Settings…	Ctrl+,");
     int cmd = TrackPopupMenu(m, TPM_RETURNCMD | TPM_RIGHTBUTTON, screen.x, screen.y, 0, hwnd, nullptr);
     DestroyMenu(m);   // also destroys the submenus
-    if (cmd >= kOff && cmd <= kM4) setMultiplier(cmd - kOff + 1);
+    if (cmd >= kOff && cmd <= kM8) setMultiplier(cmd - kOff + 1);
     else if (cmd >= kEng && size_t(cmd - kEng) < choices.size()) { if (choices[cmd - kEng].available) setEngine(choices[cmd - kEng].kind); }
     else switch (cmd) {
         case kHud: setHudLock(!g_hudLock); break;
@@ -710,8 +714,9 @@ void App::autoAdjust(const Stats::Snapshot& s) {
     slowTicks_ = 0;
     int m = effectiveMultiplier();
     if (m > 2) {
-        autoCap = m - 1;
-        autoNote = strf("Reduced to %d× — this PC can't generate %d× in time.", m - 1, m);
+        int lower = m > 6 ? 6 : m > 4 ? 4 : m - 1;
+        autoCap = lower;
+        autoNote = strf("Reduced to %d× — this PC can't generate %d× in time.", lower, m);
     } else if (!autoEngine && (effectiveEngine() == EngineKind::Quality || effectiveEngine() == EngineKind::Vfg)) {
         autoEngine = EngineKind::Fast;
         autoNote = "Switched to Low latency mode — it runs better on this PC.";
@@ -749,8 +754,8 @@ void App::updateDisplayCap(const Stats::Snapshot& s) {
 std::string App::pacingTip(double outputTarget) {
     if (outputTarget <= 20 || g_opt.maxHz > 0 || (renderer && renderer->vrr)) return "";
     double hz = displayHz();
-    auto even = [&](double r) { double k = r / outputTarget; return k >= 1 && std::abs(k - std::round(k)) < 0.02; };
-    if (even(hz)) return "";
+    auto even = [&](double r) { double k = r / outputTarget; return k >= 0.98 && std::abs(k - std::round(k)) < 0.02; };   // 59.94 Hz counts as 60
+    if (even(hz) || outputTarget > hz * 1.02) return "";   // above the refresh rate the display limit note applies instead
     int better = 0;
     for (int r : renderer->displayRates()) if (even(r) && r >= outputTarget) better = std::max(better, r);
     if (!better) return "";
@@ -761,8 +766,8 @@ std::string App::pacingTip(double outputTarget) {
 std::string App::displayCapNote() {
     if (!displayCap || *displayCap >= multiplier || autoOff) return "";
     int hz = int(std::lround(displayHz()));
-    return *displayCap <= 1 ? strf("The game already runs at this display's %d Hz, so there are no frames to add.", hz)
-                            : strf("Limited to %d× — this display shows up to %d fps.", *displayCap, hz);
+    return *displayCap <= 1 ? strf("The game already runs at this display's %d Hz, so there are no frames to add (frames beyond the refresh rate are never seen).", hz)
+                            : strf("Limited to %d× — this display shows up to %d fps, so more frames would never be seen.", *displayCap, hz);
 }
 
 void App::openPrivacySettings(const wchar_t* page) { ShellExecuteW(nullptr, L"open", page, nullptr, nullptr, SW_SHOWNORMAL); }
@@ -859,6 +864,14 @@ void App::refreshDashboard(const Stats::Snapshot* snap) {
     if (cap && cap->activeRate > 0) rateText = strf("%.0f Hz%s", cap->activeRate, cap->isAutoRate() ? " (auto)" : "");
     std::string size = stats.get(stats.sourceSize);
     live.signal = size.empty() ? "No signal yet" : strf("Card %s @ %s · game %.0f fps · dropped %d", size.c_str(), rateText.c_str(), s.sourceFPS, s.dropped);
+    if (!live.action && !displayCapNote().empty()) {
+        live.actionTitle = "Generate anyway";
+        live.action = [this] {
+            Prefs::get().setBool("displayCapEnabled", false);
+            logf("[app] display limit turned off from the dashboard");
+            displayCap.reset(); applyGeneration();
+        };
+    }
     if (!live.action && !autoNote.empty()) {
         if (auto lr = lowerResolution()) {
             auto [lw, lh] = *lr;
@@ -879,6 +892,19 @@ void App::refreshDashboard(const Stats::Snapshot* snap) {
     renderer->setOverlay(0, {img, int(dashOrigin_.x), int(dashOrigin_.y), 1, img != nullptr});
 }
 
+/// One-time facts for FrameGen.log: what this PC is, how FrameGen is set up.
+void App::logEnvironment() {
+    auto& g = Gpu::get();
+    auto& p = Prefs::get();
+    logf("[env] GPU %s (%zu MB VRAM)%s, display %.0f Hz%s", g.adapterName.c_str(), g.vramMB, g.isNvidia ? ", NVIDIA" : "", displayHz(),
+         renderer && renderer->vrr ? ", variable refresh" : "");
+    logf("[env] settings: mode %s, %d×, VFG quality %s, display limit %s, auto-adjust %s, HUD stabiliser %s, capture %dx%d @ %s",
+         engineShortLabel(engine), multiplier, p.str("vfgModel", "medium").c_str(), p.displayCapEnabled() ? "on" : "off", p.autoAdjust() ? "on" : "off",
+         g_hudLock ? "on" : "off", p.captureWidth(), p.captureHeight(), p.captureRate() ? strf("%d Hz", p.captureRate()).c_str() : "auto");
+    const auto& v = Vfg::support();
+    logf("[env] NVIDIA VFG: %s", v.supported ? "available" : v.reason.c_str());
+}
+
 void App::logStats() {
     auto s = stats.snapshot();
     auto d = pipeline->dedupe.recentDiffs();
@@ -894,6 +920,9 @@ void App::logStats() {
                   audio.isReceiving() ? "yes" : "no");
     double gap = stats.takeMaxGapMs();
     std::string err = stats.error();
+    static std::string lastNotes;
+    std::string notes = autoNote + "|" + displayCapNote();
+    if (notes != lastNotes) { lastNotes = notes; if (notes != "|") logf("[app] notes: %s", notes.c_str()); }
     logf("[stats] maxgap %.0f ms | signal %.1f fps, repeats %d | unique %.1f fps -> output %.1f fps (refresh %.0f Hz) | interp %.1f ms | delay %.1f ms | dropped %d | %s x%d%s%s%s",
          gap, s.inputFPS, stats.repeats.load(), s.sourceFPS, s.outputFPS, s.refreshHz, s.interpAvgMs, s.delayMs, s.dropped,
          engineId(pipeline->kind), effectiveMultiplier(), autoNote.empty() ? "" : (" | AUTO: " + autoNote).c_str(),

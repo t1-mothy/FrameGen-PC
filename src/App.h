@@ -93,6 +93,7 @@ private:
     void refreshDashboard(const Stats::Snapshot* snap = nullptr);
     void placeOverlays();
     void logStats();
+    void logEnvironment();
     bool handleKey(WPARAM vk);
     std::optional<std::pair<int, int>> lowerResolution();
     int currentHeight();

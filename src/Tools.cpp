@@ -56,7 +56,8 @@ int runBench() {
         while (p <= s.size()) { size_t q = s.find(',', p); if (q == std::string::npos) q = s.size(); if (auto k = engineFromId(s.substr(p, q - p))) engines.push_back(*k); p = q + 1; }
     }
     for (EngineKind k : engines) {
-        for (int mult : {2, 3, 4}) {
+        static const std::vector<int> mults = getenv("FG_MULTS") ? std::vector<int>{2, 4, 6, 8} : std::vector<int>{2, 3, 4};
+        for (int mult : mults) {
             std::vector<float> phases; for (int i = 1; i < mult; i++) phases.push_back(float(i) / mult);
             std::string err;
             auto interp = makeInterpolator(k, err);

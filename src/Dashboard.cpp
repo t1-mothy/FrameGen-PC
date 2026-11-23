@@ -156,7 +156,10 @@ float Dashboard::layoutAndDraw(ID2D1DeviceContext* dc, bool draw) {
     // Controls
     const float cx = P + 118;
     rowLabel("Frame generation", y);
-    segmented(kMult, D2D1::RectF(cx, y, W - P, y + 26), {"Off", "2×", "3×", "4×"}, std::clamp(multiplier_ - 1, 0, 3), {true, enginesOK_, enginesOK_, enginesOK_});
+    // Off 2× 3× 4× 6× 8× (5× and 7× are in Settings and the right-click menu)
+    static const int kSegMult[] = {1, 2, 3, 4, 6, 8};
+    int segSel = -1; for (int i = 0; i < 6; i++) if (kSegMult[i] == multiplier_) segSel = i;
+    segmented(kMult, D2D1::RectF(cx, y, W - P, y + 26), {"Off", "2×", "3×", "4×", "6×", "8×"}, segSel, {true, enginesOK_, enginesOK_, enginesOK_, enginesOK_, enginesOK_});
     y += 36;
     bool genOn = multiplier_ > 1;
     auto dropdown = [&](Id id, const std::string& label, bool enabled = true) {
@@ -310,7 +313,7 @@ bool Dashboard::mouseDown(int px, int py, HWND hwnd, POINT screen) {
     auto seg = [&](int n) { return std::clamp(int((x - hit.r.left) / ((hit.r.right - hit.r.left) / n)), 0, n - 1); };
     switch (hit.id) {
     case kHide: if (onHide) onHide(); break;
-    case kMult: { int i = seg(4); if ((i == 0 || enginesOK_) && onMultiplier) onMultiplier(i + 1); break; }
+    case kMult: { static const int kSegMult[] = {1, 2, 3, 4, 6, 8}; int i = seg(6); if ((i == 0 || enginesOK_) && onMultiplier) onMultiplier(kSegMult[i]); break; }
     case kEngine: {
         HMENU m = CreatePopupMenu();
         std::vector<EngineChoice> list; EngineKind cur;
