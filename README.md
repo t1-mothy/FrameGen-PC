@@ -1,46 +1,33 @@
 # FrameGen for Windows
 
-**Real-time frame generation for capture cards on Windows PCs.**
+**Real-time frame generation for capture cards/camera inputs on Windows PCs**
 
-FrameGen takes a game console's picture from a USB capture card, generates extra frames in
-between on your graphics card, and shows it at 2×–4× the frame rate — e.g. a 30 fps PlayStation 5
-game at 60 or 120 fps — with the console's sound. The Windows sibling of FrameGen for Mac: same
-simple dashboard (H), same Settings, same automatic behaviour.
+FrameGen takes input from a USB capture card, generates extra frames through your PC GPU, presenting up to an 8x FPS boost - e.g. a 30 fps PS5 
+game at 120 fps.
 
 ## Features
 
-- **2× – 8× frame generation**, with a choice of engine:
-  - **NVIDIA VFG** (RTX 40/50): NVIDIA's AI video frame generation, included in the installer. It
-    gives the cleanest picture on fast camera movement (≈ 3 ms per frame at 1080p on a current RTX
-    GPU). See [docs/VFG.md](docs/VFG.md).
-  - **NVIDIA DLSS FG** (RTX 40/50): NVIDIA DLSS Frame Generation, included in the installer
-    (generates while the window is focused). See [docs/DLSS.md](docs/DLSS.md).
-  - FrameGen's own GPU engine (Direct3D 11 compute, any modern GPU): *Low latency* (≈ 2 ms) and
-    *Smoothest* (searches motion for every generated frame).
-- **Any console and signal rate** — captures as fast as the card allows (up to 120 Hz), detects the
-  game's real frame rate (30 fps games arrive as repeated frames on a 60 Hz signal) and smooths
-  frame timing; 120 Hz and 50 Hz (PAL) consoles work too.
-- **HUD & text stabilisation** — on-screen UI is detected, hidden from motion estimation and pasted back.
-- **Sound passthrough**, delayed to stay in sync, with volume / mute / sync offset and output choice.
-- **Adapts to the PC** — steps down 4× → 3× → 2× → other mode on slower GPUs, never generates more
-  frames than the display can show, suggests an even refresh rate (or use G-SYNC / FreeSync mode).
-- **Dashboard** (H) with output vs game FPS, graph, delay and quick controls (mouse or keys), a
-  **right-click menu** with every quick option, and **Settings** (Ctrl+,).
+- **2× – 8× frame generation**, with multiple supported engines, including:
+  - **NVIDIA VFG** (RTX 4/5000 series)
+  - **NVIDIA DLSS FG** (RTX 3/4/5000 series)
+  - FrameGen's own GPU engine (Direct3D 11 compute, any modern GPU)
+- **HUD & text stabilisation** - avoid inaccurate frame generation for persistent on-screen UI (eg. game HUD, window borders)
+- **Sound passthrough** - view your console/capture device directly through your PC and PC speakers
+- **G-SYNC and FreeSync mode support**
 
 ## Install
 
-Run `FrameGen-Setup-<version>.exe` (from Releases, or build it — see below). It installs for your
-Windows account, no administrator rights needed, into `%LOCALAPPDATA%\Programs\FrameGen`, with
-Start menu and desktop shortcuts. Uninstall from Windows Settings › Apps. The installer isn't
+Run `FrameGen-Setup-<version>.exe` (from Releases, or build it — see below). The installer isn't
 code-signed, so SmartScreen may warn: *More info › Run anyway*. The first start of the installer
 can take a few seconds while antivirus scans it (it carries NVIDIA's ≈ 200 MB AI model).
-
-Logs and crash reports: `%LOCALAPPDATA%\FrameGen` (Settings › Interface › Open logs folder).
 
 ## Requirements
 
 Windows 10/11 (64-bit), a DirectX 11 graphics card (NVIDIA RTX 40/50 for NVIDIA VFG), a USB (UVC)
-HDMI capture card. PS5 / PS4: turn **HDCP off** (Settings › System › HDMI).
+HDMI capture card. 
+
+## Black Screen from Capture Card when trying to use a console (eg PS5)?
+By default, some consoles/devices disable viewing through a capture card by default (eg. PS5/PS4). To fix this, turn **HDCP off** (PS5: Settings › System › HDMI).
 
 ## Build
 
@@ -62,20 +49,15 @@ for the test tools). No other dependencies; shaders compile at runtime.
 
 ## Using it
 
-Plug in the capture card and start FrameGen — it picks the card, the best capture mode and your
-saved settings. Everything is on the dashboard and the right-click menu. Keys: **H** shows/hides
+Plug in your capture card/device and start FrameGen.
+
+Keys: **H** shows/hides
 the dashboard, **F** full screen, **M** cycles 2×/3×/4×/6×/8×, **0** off, **2** Low latency, **3** Smoothest,
 **V** NVIDIA VFG, **D** NVIDIA DLSS FG, **C** compare original vs generated, **U** HUD stabilisation, **Ctrl+,** Settings.
 
 If Windows blocks the camera ("Camera access needed"), turn on *Let desktop apps access your camera*
 (Settings › Privacy & security › Camera); the dashboard has a button for it.
 
-## How it works / development
-
-See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) (architecture, engine, measurements, test tools)
-and [docs/PLAN.md](docs/PLAN.md) (goals, milestones, lessons from the Mac version).
-
-## License
-
-[MIT](LICENSE). Not affiliated with NVIDIA, Sony, Microsoft or any game publisher. NVIDIA SDK
+## Note
+Not affiliated with NVIDIA, Sony, Microsoft or any game publisher. NVIDIA SDK
 components (optional, not included) are covered by NVIDIA's own licence terms.
