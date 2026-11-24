@@ -17,7 +17,7 @@ game at 120 fps.
 
 ## Install
 
-Run `FrameGen-Setup-<version>.exe` (from Releases, or build it — see below). The installer isn't
+Run `FrameGen-Setup-1.2.5.exe` (from Releases, or build it — see below). The installer isn't
 code-signed, so SmartScreen may warn: *More info › Run anyway*. The first start of the installer
 can take a few seconds while antivirus scans it (it carries NVIDIA's ≈ 200 MB AI model).
 
