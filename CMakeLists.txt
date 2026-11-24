@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(FrameGen VERSION 1.2.4 LANGUAGES CXX)
+project(FrameGen VERSION 1.3.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -19,6 +19,7 @@ set(FG_SOURCES
   src/Interpolators.cpp
   src/FlowEngine.cpp
   src/VfgEngine.cpp
+  src/FsrEngine.cpp
   src/Hud.cpp
   src/Renderer.cpp
   src/Audio.cpp
@@ -43,14 +44,14 @@ set(FG_DEFS UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN _CRT_SECURE_NO_WARNING
 add_executable(FrameGen WIN32 ${FG_SOURCES} src/app.rc src/app.manifest)
 target_compile_definitions(FrameGen PRIVATE ${FG_DEFS})
 target_link_libraries(FrameGen PRIVATE ${FG_LIBS})
-target_compile_options(FrameGen PRIVATE /W3 /utf-8 /MP /permissive-)
+target_compile_options(FrameGen PRIVATE /W3 /we4129 /utf-8 /MP /permissive-)
 
 # framegen-cli.exe — same program as a console app, for the test tools and --log
 # (output goes straight to the terminal and the terminal waits for it to finish).
 add_executable(framegen-cli ${FG_SOURCES} src/app.rc src/app.manifest)
 target_compile_definitions(framegen-cli PRIVATE ${FG_DEFS} FG_CONSOLE=1)
 target_link_libraries(framegen-cli PRIVATE ${FG_LIBS})
-target_compile_options(framegen-cli PRIVATE /W3 /utf-8 /MP /permissive-)
+target_compile_options(framegen-cli PRIVATE /W3 /we4129 /utf-8 /MP /permissive-)
 
 # Optional: NVIDIA Streamline (DLSS Frame Generation). Get it with tools/get_streamline.ps1.
 set(SL_DIR ${CMAKE_SOURCE_DIR}/third_party/streamline)
@@ -77,7 +78,25 @@ if(EXISTS ${VFX_RT}/NVVideoEffects.dll)
   endforeach()
 endif()
 
-# ---- Installer (per-user, no admin rights): .\package.ps1, or cmake --build build --target FrameGenSetup
+# AMD FSR Frame Generation (AMD FidelityFX SDK): headers in external/fidelityfx (MIT), AMD's signed
+# DLLs in third_party/fidelityfx/bin (tools/get_fidelityfx.ps1; not committed), copied next to the
+# app as amd-fsr\.
+set(FFX_DIR ${CMAKE_SOURCE_DIR}/third_party/fidelityfx)
+foreach(t FrameGen framegen-cli)
+  target_include_directories(${t} PRIVATE ${CMAKE_SOURCE_DIR}/external/fidelityfx/api/include ${CMAKE_SOURCE_DIR}/external/fidelityfx/framegeneration/include)
+endforeach()
+set(FFX_DLLS amd_fidelityfx_loader_dx12.dll amd_fidelityfx_framegeneration_dx12.dll)
+if(EXISTS ${FFX_DIR}/bin/amd_fidelityfx_framegeneration_dx12.dll)
+  message(STATUS "AMD FSR runtime found: copied to amd-fsr")
+  foreach(t FrameGen framegen-cli)
+    foreach(d ${FFX_DLLS})
+      add_custom_command(TARGET ${t} POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${t}>/amd-fsr
+                         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${FFX_DIR}/bin/${d} $<TARGET_FILE_DIR:${t}>/amd-fsr/${d})
+    endforeach()
+  endforeach()
+endif()
+
+# ---- Installer (all users, asks for admin rights): .\package.ps1, or cmake --build build --target FrameGenSetup
 # Embeds FrameGen.exe, the licences, NVIDIA DLSS Frame Generation (Streamline) when the SDK is in
 # third_party/streamline, and NVIDIA VFG when its runtime is in third_party/nvvfx/runtime
 # (plus the Visual C++ runtime DLLs NVIDIA's DLLs need, app-local in nvidia-vfx\).
@@ -110,6 +129,14 @@ if(EXISTS ${SL_DIR}/include/sl.h)
   list(APPEND payload_src "${SL_DIR}/license.txt" "${SL_DIR}/bin/x64/nvngx_dlss.license.txt"
                           "${SL_DIR}/bin/x64/reflex.license.txt" "${SL_DIR}/3rd-party-licenses.md")
 endif()
+if(EXISTS ${FFX_DIR}/bin/amd_fidelityfx_framegeneration_dx12.dll)
+  foreach(d ${FFX_DLLS})
+    list(APPEND payload_rel "amd-fsr/${d}")
+    list(APPEND payload_src "${FFX_DIR}/bin/${d}")
+  endforeach()
+  list(APPEND payload_rel amd-fsr/licenses/AMD-FidelityFX-license.md)
+  list(APPEND payload_src "${FFX_DIR}/license.md")
+endif()
 set(list_text "")
 set(rc_text "999 RCDATA \"${CMAKE_BINARY_DIR}/setup_files.txt\"
 ")
@@ -128,7 +155,8 @@ add_executable(FrameGenSetup WIN32 EXCLUDE_FROM_ALL installer/Setup.cpp src/Inst
                ${CMAKE_BINARY_DIR}/setup_payload.rc installer/setup.manifest)
 target_compile_definitions(FrameGenSetup PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN
                            FG_VERSION="${PROJECT_VERSION}" FG_VER_MAJOR=${PROJECT_VERSION_MAJOR} FG_VER_MINOR=${PROJECT_VERSION_MINOR} FG_VER_PATCH=${PROJECT_VERSION_PATCH})
-target_link_libraries(FrameGenSetup PRIVATE comctl32 shell32 ole32 user32 gdi32 advapi32 uuid)
-target_compile_options(FrameGenSetup PRIVATE /W3 /utf-8 /permissive-)
+target_link_libraries(FrameGenSetup PRIVATE comctl32 shell32 ole32 oleaut32 user32 gdi32 advapi32 uuid)
+target_compile_options(FrameGenSetup PRIVATE /W3 /we4129 /utf-8 /permissive-)   # C4129: unknown escape such as "\F" is an error
+target_link_options(FrameGenSetup PRIVATE /MANIFESTUAC:NO)   # the UAC level comes from setup.manifest (administrator)
 set_target_properties(FrameGenSetup PROPERTIES OUTPUT_NAME "FrameGen-Setup-${PROJECT_VERSION}")
 add_dependencies(FrameGenSetup FrameGen)

@@ -15,6 +15,7 @@ src/
   FlowEngine.*        FrameGen's GPU frame interpolation (motion search + interpolation, HLSL compute)
   Interpolators.*     engine interface, blend baseline, engine support table
   VfgEngine.*         NVIDIA VFG (Video Effects SDK, loaded at run time, D3D11↔CUDA interop) — docs/VFG.md
+  FsrEngine.*         AMD FSR Frame Generation (FidelityFX SDK, loaded at run time, D3D11↔D3D12 interop)
   Hud.*               HUD / text stabiliser (port of the Mac's Metal kernels)
   Renderer.*          Presenter interface + D3D11 presenter (vblank-driven, present only on change)
   DlssG.*, DlssPresenter.*   NVIDIA DLSS Frame Generation through Streamline (docs/DLSS.md)
@@ -72,7 +73,33 @@ pan 30.9 dB. On the gameplay pairs its block grid is 1.007. Before soft blending
 dominant-motion candidates and the 5×5 neighbourhood, our engine scored grid 1.032 and 31.4 dB vs
 VFG. Tried and rejected: an exhaustive search at the 1/16 level (−1.3 dB on the synthetic test)
 and a 3×3 vector median on the final field (erases small objects).
+
 | `--check-hud` UI panel error (off → stabiliser) | 2.15 → 1.68 | 2.18 → 1.71 | — |
+
+AMD FSR Frame Generation (FSR 3.1.6, `FsrEngine`, 2× only): `--bench` 2.1 ms at 2× (motion search
+included; live from the card 2.5–2.9 ms, no drops). Motion vectors: FlowEngine::motionField (t = 1)
+with Smoothest's search (8×8 blocks, full resolution) and **no vector-length penalty**
+(`setLengthPenalty(0)`), negated, in pixels (`motionVectorScale` 1). The default penalty keeps flat
+areas (sky) still, which FSR takes literally: a still sky next to panning buildings and wires tore
+edges, broke wires into fragments and smeared windows (GTA 6 pan, out/fsr1 live7). PSNR vs VFG on
+gameplay (`--check-real` fsr1 / game / game2 / game3):
+
+| motion vectors for FSR | fsr1 | game | game2 | game3 |
+|---|---|---|---|---|
+| Low latency search, penalty 0.002 (first version) | 30.5 | 31.6 | 31.9 | 32.6 |
+| Smoothest search, penalty 0.002 | 30.9 | 32.4 | 31.8 | 33.8 |
+| Smoothest search, penalty 0 (**used**) | **34.9** | **38.1** | **34.5** | 33.2 |
+| Low latency search, penalty 0 | 34.7 | 37.6 | 34.4 | 32.9 |
+| + per-pixel choice of vector (as our interpolation) | 34.6 | 37.6 | 33.7 | 32.6 |
+| (FrameGen Low latency engine, for reference) | 31.4 | 32.0 | 33.1 | 36.7 |
+
+Block grid 1.003 / 1.004 / 0.982 / 1.000 — the cleanest of all engines (game3 = menu fades, where FSR
+shows a real frame at a scene change and VFG blends two pictures). `--check-quality`: action
+35.4 dB, pan 28.4 dB (synthetic scenes favour our block search; FSR also wants depth, here one flat
+plane). `FG_FSR_MV=-1 / 0 / 0.5 / 2` (test aid) all score worse. Without an FSR swap chain, every
+`ffxConfigure` needs `FFX_FRAMEGENERATION_FLAG_NO_SWAPCHAIN_CONTEXT_NOTIFY` and the same frameID as
+the dispatches, or FSR treats each frame as a reset and returns the real frame. Remaining: streaks
+where new scenery enters at the screen edge during a pan, specks at some character outlines.
 
 Live, test pattern, 30 fps game on 60 Hz: 2× → 60 fps, delay ≈ 24 ms; Smoothest 4× → 120 fps,
 delay ≈ 41 ms. 25 fps PAL on 50 Hz captured at 120 Hz: cadence jitter 3.33 → 0.38 ms.
@@ -126,14 +153,22 @@ tests only), `--check-dlss`, `FG_NO_DLSS=1` (skip Streamline), `FG_DLSS_NOGPU=1`
 `.\package.ps1` → `dist\FrameGen-Setup-<version>.exe` (version: `project()` in CMakeLists.txt).
 The installer (`installer/Setup.cpp`) is a plain Win32 program; CMake writes `setup_payload.rc`
 with FrameGen.exe, the licences, the README and — if present — the Streamline / DLSS-G DLLs
-(`streamline\`) and `third_party\nvvfx\runtime\**` plus the Visual C++ runtime DLLs (from
-`%VCToolsRedistDir%`) as RCDATA resources. It installs per
-user to `%LOCALAPPDATA%\Programs\FrameGen` (`/S` = silent), creates shortcuts and the Windows
-› Apps entry; `FrameGen.exe --uninstall` removes exactly the registered folder (and refuses
-anywhere else). The app logs each run to `%LOCALAPPDATA%\FrameGen\FrameGen.log` (previous run:
+(`streamline\`), AMD's FSR DLLs (`amd-fsr\`) and `third_party\nvvfx\runtime\**` plus the Visual C++ runtime DLLs (from
+`%VCToolsRedistDir%`) as RCDATA resources. It asks for
+administrator rights (`installer/setup.manifest`) and installs for all users to a folder the user
+picks (default `C:\Program Files\FrameGen`; `/S [/D=folder]` = silent), creates all-users
+shortcuts and the Windows › Apps entry (HKLM), removes a per-user install of 1.2.4 or earlier,
+starts FrameGen without administrator rights (through Explorer), and records every file it writes in
+`uninstall.list`. `FrameGen.exe --uninstall` (only from the registered folder) and moving the
+install remove exactly those files and the folders they leave empty. The app logs each run to `%LOCALAPPDATA%\FrameGen\FrameGen.log` (previous run:
 `FrameGen.previous.log`) and writes a minidump there on a crash. CI (`.github/workflows/build.yml`)
 builds the app and an installer without NVIDIA VFG. Test aids: `FG_VFG_NOGPU=1` (behave like a
-GPU without VFG support), `FG_VFG_ANYGPU=1`.
+GPU without VFG support), `FG_VFG_ANYGPU=1`, `FG_FSR_NOGPU=1`, `FG_UNINSTALL_TRACE=<file>`.
+
+AMD FSR: the API headers are committed in `external\fidelityfx` (MIT); AMD's signed DLLs come from
+the FidelityFX SDK release (`tools\get_fidelityfx.ps1` → `third_party\fidelityfx\bin`, not
+committed), are copied to `build\amd-fsr` and shipped in the installer's `amd-fsr\` with AMD's
+licence. FrameGen loads them only if they carry AMD's signature (`FG_FSR_UNSIGNED=1` skips that).
 
 ## Diagnostics
 
@@ -153,5 +188,5 @@ that post mouse messages.
 ## Keys
 
 H / Tab dashboard · F / F11 / double-click full screen · Esc leave full screen · M 2×/3×/4× ·
-0 off · 2 Low latency · 3 Smoothest · V NVIDIA VFG · D NVIDIA DLSS FG · C compare · U HUD stabiliser ·
+0 off · 2 Low latency · 3 Smoothest · V NVIDIA VFG · D NVIDIA DLSS FG · A AMD FSR · C compare · U HUD stabiliser ·
 Ctrl+[ / Ctrl+] sound sync · Ctrl+M mute · Ctrl+, Settings.

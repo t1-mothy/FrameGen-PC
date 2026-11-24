@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <algorithm>
 #include <cwctype>
+#include <softpub.h>
+#include <wintrust.h>
 
 Options g_opt;
 std::atomic<bool> g_hudLock{true};
@@ -96,7 +98,7 @@ int VideoFrame::width() const { return image ? image->w : 0; }
 int VideoFrame::height() const { return image ? image->h : 0; }
 
 const char* engineId(EngineKind k) {
-    switch (k) { case EngineKind::Off: return "off"; case EngineKind::Blend: return "blend"; case EngineKind::Fast: return "fast"; case EngineKind::Quality: return "quality"; case EngineKind::DlssG: return "dlss"; case EngineKind::Vfg: return "vfg"; }
+    switch (k) { case EngineKind::Off: return "off"; case EngineKind::Blend: return "blend"; case EngineKind::Fast: return "fast"; case EngineKind::Quality: return "quality"; case EngineKind::DlssG: return "dlss"; case EngineKind::Vfg: return "vfg"; case EngineKind::Fsr: return "fsr"; }
     return "off";
 }
 const char* engineLabel(EngineKind k) {
@@ -107,6 +109,7 @@ const char* engineLabel(EngineKind k) {
     case EngineKind::Quality: return "Smoothest (GPU motion flow, quality)";
     case EngineKind::DlssG: return "DLSS Frame Generation (NVIDIA)";
     case EngineKind::Vfg: return "NVIDIA VFG (AI video frame generation)";
+    case EngineKind::Fsr: return "AMD FSR Frame Generation";
     }
     return "";
 }
@@ -118,6 +121,7 @@ const char* engineShortLabel(EngineKind k) {
     case EngineKind::Quality: return "Smoothest";
     case EngineKind::DlssG: return "NVIDIA DLSS FG";
     case EngineKind::Vfg: return "NVIDIA VFG (AI)";
+    case EngineKind::Fsr: return "AMD FSR (2×)";
     }
     return "";
 }
@@ -128,6 +132,7 @@ std::optional<EngineKind> engineFromId(const std::string& s) {
     if (s == "quality" || s == "smooth" || s == "vtfrc") return EngineKind::Quality;
     if (s == "dlss" || s == "dlssg" || s == "dlss-g") return EngineKind::DlssG;
     if (s == "vfg" || s == "nvidia-vfg") return EngineKind::Vfg;
+    if (s == "fsr" || s == "amd-fsr" || s == "fsr3") return EngineKind::Fsr;
     return std::nullopt;
 }
 
@@ -221,4 +226,30 @@ Options Options::parse(int argc, wchar_t** argv) {
     }
     if (o.quitAfter > 0 || !o.uiShot.empty() || !o.liveDumpDir.empty()) o.log = true;
     return o;
+}
+
+bool signedBy(const std::wstring& path, const wchar_t* company) {
+    WINTRUST_FILE_INFO fi{sizeof fi};
+    fi.pcwszFilePath = path.c_str();
+    GUID action = WINTRUST_ACTION_GENERIC_VERIFY_V2;
+    WINTRUST_DATA wd{sizeof wd};
+    wd.dwUIChoice = WTD_UI_NONE;
+    wd.fdwRevocationChecks = WTD_REVOKE_NONE;
+    wd.dwUnionChoice = WTD_CHOICE_FILE;
+    wd.pFile = &fi;
+    wd.dwStateAction = WTD_STATEACTION_VERIFY;
+    wd.dwProvFlags = WTD_CACHE_ONLY_URL_RETRIEVAL;
+    LONG r = WinVerifyTrust(nullptr, &action, &wd);
+    bool ok = false;
+    if (r == ERROR_SUCCESS) {
+        if (auto* prov = WTHelperProvDataFromStateData(wd.hWVTStateData))
+            if (auto* signer = WTHelperGetProvSignerFromChain(prov, 0, FALSE, 0); signer && signer->csCertChain && signer->pasCertChain) {
+                wchar_t name[256] = {};
+                CertGetNameStringW(signer->pasCertChain[0].pCert, CERT_NAME_SIMPLE_DISPLAY_TYPE, 0, nullptr, name, 256);
+                ok = wcscmp(name, company) == 0;
+            }
+    }
+    wd.dwStateAction = WTD_STATEACTION_CLOSE;
+    WinVerifyTrust(nullptr, &action, &wd);
+    return ok;
 }

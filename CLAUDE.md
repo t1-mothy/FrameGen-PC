@@ -24,6 +24,9 @@ pipeline) and `docs/DEVELOPMENT.md` (architecture, measurements, test tools).
 - NVIDIA VFG (AI frame generation, `src/VfgEngine.*`) loads NVIDIA's Video Effects runtime at run
   time; for development put the four DLLs in `third_party\nvvfx\runtime` (copied to
   `build\nvidia-vfx`). See `docs/VFG.md`. Compare engines on real frames with `--check-real`.
+- AMD FSR Frame Generation (`src/FsrEngine.*`, 2× only, D3D11↔D3D12 interop): headers committed in
+  `external\fidelityfx`; AMD's signed DLLs via `tools\get_fidelityfx.ps1` → `third_party\fidelityfx\bin`
+  (copied to `build\amd-fsr`). Notes in docs/DEVELOPMENT.md (Measurements).
 
 ## Rules
 - License is MIT. 

@@ -108,7 +108,7 @@ void SettingsWindow::build() {
     y = 56;
     label(1, L"Frame generation:", y); add(1, WC_COMBOBOXW, L"", combo, 168, y, 200, 300, kMult); y += 34;
     label(1, L"Mode:", y); add(1, WC_COMBOBOXW, L"", combo, 168, y, 240, 200, kEngine); y += 32;
-    y = note(1, L"Low latency responds fastest. Smoothest searches motion more carefully for every generated frame. NVIDIA VFG (AI) gives the cleanest picture on fast camera movement. NVIDIA DLSS FG uses DLSS Frame Generation (works while this window is focused). Both need an RTX 40/50.", y);
+    y = note(1, L"Low latency responds fastest. Smoothest searches motion more carefully for every generated frame. NVIDIA VFG (AI) gives the cleanest picture on fast camera movement. NVIDIA DLSS FG uses DLSS Frame Generation (works while this window is focused). Both need an RTX 40/50 (NVIDIA VFG: RTX 30 experimental). AMD FSR runs on most DirectX 12 graphics cards (AMD, NVIDIA incl. RTX 20/30, Intel) and makes 2×.", y);
     label(1, L"VFG quality:", y); add(1, WC_COMBOBOXW, L"", combo, 168, y, 240, 200, kVfgModel); y += 32;
     label(1, L"NVIDIA VFG:", y); add(1, L"STATIC", L"", SS_LEFT | SS_PATHELLIPSIS, 168, y + 3, 250, 20, kVfgStatus);
     add(1, L"BUTTON", L"Choose folder…", BS_PUSHBUTTON | WS_TABSTOP, 424, y, 100, 24, kVfgFolder); y += 34;

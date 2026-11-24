@@ -45,8 +45,9 @@ static int appMain(int argc, wchar_t** argv, int show) {
     for (int i = 1; i < argc; i++)
         if (wcscmp(argv[i], L"--uninstall") == 0) {
             CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-            bool quiet = false; for (int j = 1; j < argc; j++) quiet = quiet || wcscmp(argv[j], L"--quiet") == 0;
-            return Install::uninstall(quiet);
+            bool quiet = false, confirmed = false;
+            for (int j = 1; j < argc; j++) { quiet = quiet || wcscmp(argv[j], L"--quiet") == 0; confirmed = confirmed || wcscmp(argv[j], L"--confirmed") == 0; }
+            return Install::uninstall(quiet, confirmed);
         }
     g_opt = Options::parse(argc, argv);
     SetUnhandledExceptionFilter(onCrash);

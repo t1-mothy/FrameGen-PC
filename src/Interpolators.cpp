@@ -4,6 +4,7 @@
 #include "DlssG.h"
 #include "Prefs.h"
 #include "VfgEngine.h"
+#include "FsrEngine.h"
 
 static const char* kBlend = R"(
 Texture2D<float4> A : register(t0);
@@ -51,17 +52,21 @@ std::unique_ptr<Interpolator> makeInterpolator(EngineKind kind, std::string& err
         if (const char* e = getenv("FG_VFG_MODEL")) m = e;
         return std::make_unique<VfgEngine>(m == "low" ? VfgEngine::Model::Low : m == "high" ? VfgEngine::Model::High : VfgEngine::Model::Medium);
     }
+    case EngineKind::Fsr:
+        if (!Fsr::support().supported) { error = Fsr::support().reason; return nullptr; }
+        return std::make_unique<FsrEngine>();
     }
     error = "unknown engine";
     return nullptr;
 }
 
 namespace EngineSupport {
-// Both built-in engines run on any Direct3D 11 GPU. NVIDIA Optical Flow FRUC / DLSS Frame
-// Generation and AMD FSR 3 can be added here as further engines (see docs/PLAN.md, M8).
+// Both built-in engines run on any Direct3D 11 GPU; NVIDIA VFG / DLSS Frame Generation and AMD FSR
+// need their runtimes and a capable GPU.
 bool isSupported(EngineKind k) {
     if (k == EngineKind::DlssG) return DlssG::support().supported;
     if (k == EngineKind::Vfg) return Vfg::support().supported;
+    if (k == EngineKind::Fsr) return Fsr::support().supported;
     return k == EngineKind::Off || Gpu::get().dev != nullptr;
 }
 bool any() { return Gpu::get().dev != nullptr; }
@@ -77,8 +82,10 @@ std::string describe() {
     auto& g = Gpu::get();
     const auto& v = Vfg::support();
     std::string vfg = v.supported ? "yes (" + narrow(v.dir) + ")" : "no — " + v.reason;
-    return strf("GPU: %s (%zu MB)%s\nLow latency engine (GPU flow): %s\nSmoothest engine (GPU flow, quality): %s\nTearing / VRR presentation: %s\nDLSS Frame Generation (NVIDIA): %s\nNVIDIA VFG (AI frame generation): %s",
+    const auto& f = Fsr::support();
+    std::string fsr = f.supported ? "yes, 2× (" + narrow(f.dir) + ")" : "no — " + f.reason;
+    return strf("GPU: %s (%zu MB)%s\nLow latency engine (GPU flow): %s\nSmoothest engine (GPU flow, quality): %s\nTearing / VRR presentation: %s\nDLSS Frame Generation (NVIDIA): %s\nNVIDIA VFG (AI frame generation): %s\nAMD FSR Frame Generation: %s",
                 g.adapterName.c_str(), g.vramMB, g.isNvidia ? " — NVIDIA" : "",
-                isSupported(EngineKind::Fast) ? "yes" : "no", isSupported(EngineKind::Quality) ? "yes" : "no", g.tearingSupported ? "supported" : "not supported", dl.c_str(), vfg.c_str());
+                isSupported(EngineKind::Fast) ? "yes" : "no", isSupported(EngineKind::Quality) ? "yes" : "no", g.tearingSupported ? "supported" : "not supported", dl.c_str(), vfg.c_str(), fsr.c_str());
 }
 }

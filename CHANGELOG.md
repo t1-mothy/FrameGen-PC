@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.3.0
+- New mode: AMD FSR (2×) — AMD's FSR Frame Generation (FidelityFX SDK 2.4, FSR 3.1.6), included
+  in the installer. Runs on most DirectX 12 graphics cards: AMD, Intel and NVIDIA including RTX
+  20/30 series. Makes 2× only (with a note when more is asked for). FrameGen feeds it motion from
+  its Smoothest search, tuned for FSR (plain sky moves with the camera instead of standing still,
+  which had made FSR tear building edges and break up wires during camera pans). On real game
+  footage it shows no block edges and handles scene changes and menu fades cleanly. Key A, or the
+  Mode menu.
+- Installer: installs for everyone on the PC, by default to C:\Program Files\FrameGen (Windows
+  asks for administrator permission), or to a folder you choose (type it or Browse…; Browse
+  installs into a FrameGen folder inside the one picked). Drive roots and folders already holding
+  other files are refused with a plain explanation. Silent install: /S /D=folder. An existing
+  per-user install (1.2.4 and earlier, in AppData) is moved over automatically; settings are kept.
+  Uninstalling asks for administrator permission too.
+- Uninstall (and moving the install to another folder) removes only the files the installer put
+  there (recorded in uninstall.list), never anything else in the folder.
+- New installer wording.
+- NVIDIA VFG can be tried on RTX 30 series cards (experimental): NVIDIA's runtime only contains
+  GPU code for RTX 40/50, so it will most likely be refused with the usual "doesn't support" message.
+
 ## 1.2.4
 - Fixed the remaining stutter on high-refresh displays: redrawing the frame already on screen
   (dashboard / FPS counter updates, periodic refresh) emptied the frame queue, throwing away the

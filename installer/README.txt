@@ -10,9 +10,12 @@ Getting started
    PlayStation 5 / 4: turn HDCP off (Settings > System > HDMI).
 2. Start FrameGen from the Start menu. It picks the card and the best settings by itself.
 3. Pick a Mode on the dashboard (or right-click the picture):
-   - NVIDIA VFG (AI): the cleanest picture. Needs an NVIDIA RTX 40 or 50 series graphics card.
+   - NVIDIA VFG (AI): the cleanest picture. Needs an NVIDIA RTX 40 or 50 series graphics card
+     (RTX 30 series: experimental only).
    - NVIDIA DLSS FG: NVIDIA DLSS Frame Generation (RTX 40/50). Works while FrameGen's window
      is focused (click the picture).
+   - AMD FSR (2x): AMD's FSR Frame Generation. Runs on most DirectX 12 graphics cards (AMD,
+     Intel, NVIDIA including RTX 20/30 series). Makes 2x only.
    - Low latency / Smoothest: FrameGen's own engine, runs on any DirectX 11 graphics card.
 
 Controls
@@ -20,7 +23,7 @@ Controls
 Everything is on the dashboard and in the right-click menu. Keys:
   H  show/hide the dashboard      F  full screen (Esc to leave)
   M  2x / 3x / 4x / 6x / 8x       0  frame generation off
-  V  NVIDIA VFG   D  NVIDIA DLSS FG   2  Low latency  3  Smoothest
+  V  NVIDIA VFG   D  NVIDIA DLSS FG   A  AMD FSR   2  Low latency  3  Smoothest
   C  compare original/generated   U  HUD & text stabiliser
   Ctrl+,  Settings                Ctrl+M  mute
 

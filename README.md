@@ -9,7 +9,8 @@ game at 120 fps.
 
 - **2× – 8× frame generation**, with multiple supported engines, including:
   - **NVIDIA VFG** (RTX 4/5000 series)
-  - **NVIDIA DLSS FG** (RTX 3/4/5000 series)
+  - **NVIDIA DLSS FG** (RTX 4/5000 series)
+  - **AMD FSR** (2× only, most DirectX 12 GPUs incl. NVIDIA RTX 2/3000 series)
   - FrameGen's own GPU engine (Direct3D 11 compute, any modern GPU)
 - **HUD & text stabilisation** - avoid inaccurate frame generation for persistent on-screen UI (eg. game HUD, window borders)
 - **Sound passthrough** - view your console/capture device directly through your PC and PC speakers
@@ -17,7 +18,7 @@ game at 120 fps.
 
 ## Install
 
-Run `FrameGen-Setup-1.2.5.exe` (from Releases, or build it — see below). The installer isn't
+Run `FrameGen-Setup-1.3.0.exe` (from Releases, or build it — see below). The installer isn't
 code-signed, so SmartScreen may warn: *More info › Run anyway*. The first start of the installer
 can take a few seconds while antivirus scans it (it carries NVIDIA's ≈ 200 MB AI model).
 
@@ -53,11 +54,11 @@ Plug in your capture card/device and start FrameGen.
 
 Keys: **H** shows/hides
 the dashboard, **F** full screen, **M** cycles 2×/3×/4×/6×/8×, **0** off, **2** Low latency, **3** Smoothest,
-**V** NVIDIA VFG, **D** NVIDIA DLSS FG, **C** compare original vs generated, **U** HUD stabilisation, **Ctrl+,** Settings.
+**V** NVIDIA VFG, **D** NVIDIA DLSS FG, **A** AMD FSR, **C** compare original vs generated, **U** HUD stabilisation, **Ctrl+,** Settings.
 
 If Windows blocks the camera ("Camera access needed"), turn on *Let desktop apps access your camera*
 (Settings › Privacy & security › Camera); the dashboard has a button for it.
 
 ## Note
-Not affiliated with NVIDIA, Sony, Microsoft or any game publisher. NVIDIA SDK
-components (optional, not included) are covered by NVIDIA's own licence terms.
+Not affiliated with NVIDIA, AMD, Sony, Microsoft or any game publisher. NVIDIA and AMD SDK
+components are covered by their own licence terms.

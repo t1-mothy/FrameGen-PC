@@ -1,8 +1,6 @@
 #include "VfgEngine.h"
 #include "Hud.h"
 #include "Prefs.h"
-#include <softpub.h>
-#include <wintrust.h>
 #include <filesystem>
 #include <functional>
 #include <mutex>
@@ -69,32 +67,7 @@ struct Api {
 
 const wchar_t* kDlls[] = {L"NVVideoEffects.dll", L"NVCVImage.dll", L"cudart64_12.dll", L"nvVFXVideoFrameGeneration.dll"};
 
-/// True if `path` has a valid Authenticode signature from NVIDIA Corporation.
-bool signedByNvidia(const std::wstring& path) {
-    WINTRUST_FILE_INFO fi{sizeof fi};
-    fi.pcwszFilePath = path.c_str();
-    GUID action = WINTRUST_ACTION_GENERIC_VERIFY_V2;
-    WINTRUST_DATA wd{sizeof wd};
-    wd.dwUIChoice = WTD_UI_NONE;
-    wd.fdwRevocationChecks = WTD_REVOKE_NONE;
-    wd.dwUnionChoice = WTD_CHOICE_FILE;
-    wd.pFile = &fi;
-    wd.dwStateAction = WTD_STATEACTION_VERIFY;
-    wd.dwProvFlags = WTD_CACHE_ONLY_URL_RETRIEVAL;
-    LONG r = WinVerifyTrust(nullptr, &action, &wd);
-    bool nvidia = false;
-    if (r == ERROR_SUCCESS) {
-        if (auto* prov = WTHelperProvDataFromStateData(wd.hWVTStateData))
-            if (auto* signer = WTHelperGetProvSignerFromChain(prov, 0, FALSE, 0); signer && signer->csCertChain && signer->pasCertChain) {
-                wchar_t name[256] = {};
-                CertGetNameStringW(signer->pasCertChain[0].pCert, CERT_NAME_SIMPLE_DISPLAY_TYPE, 0, nullptr, name, 256);
-                nvidia = wcscmp(name, L"NVIDIA Corporation") == 0;
-            }
-    }
-    wd.dwStateAction = WTD_STATEACTION_CLOSE;
-    WinVerifyTrust(nullptr, &action, &wd);
-    return nvidia;
-}
+bool signedByNvidia(const std::wstring& path) { return signedBy(path, L"NVIDIA Corporation"); }
 
 std::wstring exeDir() {
     wchar_t exe[MAX_PATH]; GetModuleFileNameW(nullptr, exe, MAX_PATH);
@@ -172,14 +145,19 @@ Api& api() {
 namespace Vfg {
 const char* kGpuUnsupported = "Your GPU does not support NVIDIA VFG. Frame generation is disabled, please select another option.";
 
-/// VFG runs on Ada (RTX 40) and Blackwell (RTX 50) GPUs and newer.
+/// VFG runs on Ada (RTX 40) and Blackwell (RTX 50) GPUs and newer. RTX 30 (Ampere) may try it as
+/// an experiment: NVIDIA's runtime only has GPU code for RTX 40/50, so it will most likely refuse
+/// (NVCV_ERR_UNSUPPORTEDGPU → the usual "doesn't support" message) — it can't harm anything.
 static bool gpuCanRunVfg() {
     auto& gpu = Gpu::get();
     if (!gpu.dev || !gpu.isNvidia) return false;
     if (getenv("FG_VFG_NOGPU")) return false;   // test aid: behave like an unsupported GPU
     if (getenv("FG_VFG_ANYGPU")) return true;
     static const std::regex re(R"(RTX\s*[4-9]0[5-9]0|Ada Generation|Blackwell)", std::regex::icase);
-    return std::regex_search(gpu.adapterName, re);
+    static const std::regex ampere(R"(RTX\s*30[5-9]0)", std::regex::icase);
+    if (std::regex_search(gpu.adapterName, re)) return true;
+    if (std::regex_search(gpu.adapterName, ampere)) { logf("[vfg] RTX 30 series: NVIDIA VFG is experimental here"); return true; }
+    return false;
 }
 
 bool isRuntimeFolder(const std::wstring& dir) {

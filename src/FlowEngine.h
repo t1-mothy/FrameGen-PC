@@ -24,6 +24,10 @@ public:
     /// Motion from `prev` to `next`, located at `next`'s pixels (input for DLSS Frame Generation):
     /// a block field (RG16F, values in field pixels; multiply by `scale` for video pixels).
     ImagePtr motionField(const VideoFrame& prev, const VideoFrame& next, float& scale);
+    /// Penalty on vector length per full-res pixel (default 0.002): keeps flat areas (plain sky)
+    /// still, which suits FrameGen's own interpolation. Engines that take motion vectors as
+    /// "true" motion (AMD FSR) need 0: there a still sky next to panning buildings tears the edges.
+    void setLengthPenalty(float mu) { if (!getenv("FG_MU")) muFull_ = mu; }
 
 private:
     struct Level {

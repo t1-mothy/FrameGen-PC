@@ -51,6 +51,7 @@ int runBench() {
     logf("Benchmark at %dx%d, %zu source frames (scene %s, HUD stabiliser %s)", w, h, frames.size(), g_opt.scene.c_str(), g_hudLock ? "on" : "off");
     std::vector<EngineKind> engines(std::begin(kEngines), std::end(kEngines));
     if (EngineSupport::isSupported(EngineKind::Vfg)) engines.push_back(EngineKind::Vfg);
+    if (EngineSupport::isSupported(EngineKind::Fsr)) engines.push_back(EngineKind::Fsr);
     if (const char* e = getenv("FG_ENGINES")) {
         engines.clear(); std::string s = e; size_t p = 0;
         while (p <= s.size()) { size_t q = s.find(',', p); if (q == std::string::npos) q = s.size(); if (auto k = engineFromId(s.substr(p, q - p))) engines.push_back(*k); p = q + 1; }
@@ -225,6 +226,7 @@ int runQualityCheck() {
         logf("Scene \"%s\" %dx%d (error vs exact in-between frames, /255; lower is better)", scene.c_str(), W, H);
         std::vector<EngineKind> engines(std::begin(kEngines), std::end(kEngines));
         if (EngineSupport::isSupported(EngineKind::Vfg)) engines.push_back(EngineKind::Vfg);
+        if (EngineSupport::isSupported(EngineKind::Fsr)) engines.push_back(EngineKind::Fsr);
         if (const char* e = getenv("FG_ENGINES")) {
             engines.clear(); std::string s = e; size_t p = 0;
             while (p <= s.size()) { size_t q = s.find(',', p); if (q == std::string::npos) q = s.size(); if (auto k = engineFromId(s.substr(p, q - p))) engines.push_back(*k); p = q + 1; }
@@ -289,6 +291,7 @@ int runRealCheck(const std::string& dir) {
     g_hudLock = g_opt.hudLock;
     std::vector<EngineKind> engines = {EngineKind::Fast, EngineKind::Quality};
     if (EngineSupport::isSupported(EngineKind::Vfg)) engines.push_back(EngineKind::Vfg);
+    if (EngineSupport::isSupported(EngineKind::Fsr)) engines.push_back(EngineKind::Fsr);
     if (const char* e = getenv("FG_ENGINES")) {
         engines.clear();
         std::string s = e; size_t p = 0;

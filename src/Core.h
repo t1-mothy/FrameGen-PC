@@ -28,6 +28,8 @@ std::wstring strfw(const wchar_t* fmt, ...);
 std::wstring widen(const std::string& s);
 std::string narrow(const std::wstring& s);
 std::string hr2str(HRESULT hr);
+/// True if `path` has a valid Authenticode signature whose signer is `company` (e.g. L"NVIDIA Corporation").
+bool signedBy(const std::wstring& path, const wchar_t* company);
 bool icontains(const std::string& hay, const std::string& needle);
 
 // ---- GPU images (see Gpu.h). Frames hold a shared reference; pools recycle images nobody holds.
@@ -60,7 +62,7 @@ struct VideoFrame {
 };
 using FramePtr = std::shared_ptr<VideoFrame>;
 
-enum class EngineKind { Off, Blend, Fast, Quality, DlssG, Vfg };
+enum class EngineKind { Off, Blend, Fast, Quality, DlssG, Vfg, Fsr };
 const char* engineId(EngineKind k);          // "off", "blend", "fast", "quality"
 const char* engineLabel(EngineKind k);       // human-readable
 const char* engineShortLabel(EngineKind k);  // for menus / the dashboard

@@ -1,5 +1,5 @@
 // NVIDIA Video Frame Generation (VFG): the AI frame interpolation filter of NVIDIA's Video
-// Effects SDK (Maxine). Ada / Blackwell (RTX 40 / 50) GPUs.
+// Effects SDK (Maxine). Ada / Blackwell (RTX 40 / 50) GPUs; RTX 30 may try it (experimental).
 //
 // The SDK runtime (NVVideoEffects.dll, NVCVImage.dll, cudart64_12.dll and the
 // nvVFXVideoFrameGeneration feature) is NVIDIA's and is not part of FrameGen. It's loaded at run
@@ -16,7 +16,7 @@
 namespace Vfg {
 struct Support {
     bool supported = false;   // a capable GPU and the runtime found
-    bool gpuOk = false;       // NVIDIA RTX 40 / 50 (Ada / Blackwell) or newer
+    bool gpuOk = false;       // NVIDIA RTX 40 / 50 (Ada / Blackwell) or newer; RTX 30 experimental
     std::string reason;       // why not, in plain English (shown when the user picks VFG)
     std::wstring dir;         // runtime folder
 };

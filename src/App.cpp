@@ -3,6 +3,7 @@
 #include "Interpolators.h"
 #include "Prefs.h"
 #include "VfgEngine.h"
+#include "FsrEngine.h"
 #include "Settings.h"
 #include "DlssPresenter.h"
 #include "Synthetic.h"
@@ -60,7 +61,8 @@ App::~App() {
 
 int App::effectiveMultiplier() const {
     if (autoOff) return 1;
-    return std::min({multiplier, autoCap.value_or(8), displayCap.value_or(8)});
+    int engineMax = effectiveEngine() == EngineKind::Fsr ? 2 : 8;   // AMD FSR makes one frame per pair
+    return std::min({multiplier, autoCap.value_or(8), displayCap.value_or(8), engineMax});
 }
 
 double App::displayHz() {
@@ -288,6 +290,7 @@ bool App::handleKey(WPARAM vk) {
     case '3': setEngine(EngineKind::Quality); if (multiplier <= 1) setMultiplier(2); return true;
     case 'D': setEngine(EngineKind::DlssG); if (multiplier <= 1) setMultiplier(2); return true;
     case 'V': setEngine(EngineKind::Vfg); if (multiplier <= 1) setMultiplier(2); return true;
+    case 'A': setEngine(EngineKind::Fsr); if (multiplier <= 1) setMultiplier(2); return true;
     case 'M': { static const int next[] = {2, 2, 3, 4, 6, 6, 8, 8, 2}; setMultiplier(next[std::clamp(multiplier, 1, 8)]); return true; }
     case 'C': renderer->compare = !renderer->compare; syncControls(); return true;
     case 'U': setHudLock(!g_hudLock); return true;
@@ -605,6 +608,7 @@ void App::setMultiplier(int m) {
 /// stays off until they choose another mode.
 std::string App::engineBlockReason() const {
     if (engine == EngineKind::Vfg && !EngineSupport::isSupported(EngineKind::Vfg)) return Vfg::support().reason;
+    if (engine == EngineKind::Fsr && !EngineSupport::isSupported(EngineKind::Fsr)) return Fsr::support().reason;
     if (engine == EngineKind::DlssG && !EngineSupport::isSupported(EngineKind::DlssG)) {
         const auto& d = DlssG::support();
         if (d.gpuUnsupported || !Gpu::get().isNvidia) return "Your GPU does not support NVIDIA DLSS Frame Generation. Frame generation is disabled, please select another option.";
@@ -615,7 +619,7 @@ std::string App::engineBlockReason() const {
 bool App::engineBlocked() const { return !engineBlockReason().empty(); }
 
 void App::setEngine(EngineKind k) {
-    if (k != EngineKind::Vfg && k != EngineKind::DlssG && !EngineSupport::isSupported(k)) return;
+    if (k != EngineKind::Vfg && k != EngineKind::DlssG && k != EngineKind::Fsr && !EngineSupport::isSupported(k)) return;
     engine = k;
     Prefs::get().set("engine", std::string(engineId(k)));
     clearAuto();
@@ -646,11 +650,13 @@ void App::nudgeSync(int ms) {
 
 std::vector<Dashboard::EngineChoice> App::engineChoices() {
     std::vector<Dashboard::EngineChoice> v;
-    for (EngineKind k : {EngineKind::Fast, EngineKind::Quality, EngineKind::Vfg, EngineKind::DlssG}) {
+    for (EngineKind k : {EngineKind::Fast, EngineKind::Quality, EngineKind::Vfg, EngineKind::DlssG, EngineKind::Fsr}) {
         std::string why;
         if (k == EngineKind::Vfg) why = Vfg::support().reason;
-        // The NVIDIA engines are always offered: picking one on a PC that can't run it says why.
-        v.push_back({k, engineShortLabel(k), k == EngineKind::Vfg || k == EngineKind::DlssG || EngineSupport::isSupported(k), why});
+        if (k == EngineKind::Fsr) why = Fsr::support().reason;
+        // The NVIDIA / AMD engines are always offered: picking one on a PC that can't run it says why.
+        bool vendor = k == EngineKind::Vfg || k == EngineKind::DlssG || k == EngineKind::Fsr;
+        v.push_back({k, engineShortLabel(k), vendor || EngineSupport::isSupported(k), why});
     }
     return v;
 }
@@ -858,6 +864,8 @@ void App::refreshDashboard(const Stats::Snapshot* snap) {
     if (renderer->compare) warn.push_back("Compare on: left = original, right = generated.");
     if (strcmp(renderer->kind(), "dlss") == 0 && GetForegroundWindow() != hwnd)
         warn.push_back("DLSS Frame Generation pauses while this window isn't in focus — click the picture to resume.");
+    if (effectiveEngine() == EngineKind::Fsr && multiplier > 2)
+        warn.push_back("AMD FSR frame generation makes 2× (one frame between each pair), so that's what you get.");
     if (renderer && strcmp(renderer->kind(), "dlss") == 0 && DlssG::maxGenerateKnown() > 0 && multiplier - 1 > DlssG::maxGenerateKnown())
         warn.push_back(strf("DLSS Frame Generation on this graphics card goes up to %d×, so that's what you get.", DlssG::maxGenerateKnown() + 1));
 
