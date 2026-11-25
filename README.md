@@ -1,9 +1,6 @@
 # FrameGen for Windows
 
-**Real-time frame generation for capture cards/camera inputs on Windows PCs**
-
-FrameGen takes input from a USB capture card, generates extra frames through your PC GPU, presenting up to an 8x FPS boost - e.g. a 30 fps PS5 
-game at 120 fps.
+**Real-time frame generation for capture cards on Windows PCs, allowing for up to an 8x boost in FPS**
 
 ## Features
 
@@ -19,13 +16,12 @@ game at 120 fps.
 ## Install
 
 Run `FrameGen-Setup-1.3.0.exe` (from Releases, or build it — see below). The installer isn't
-code-signed, so SmartScreen may warn: *More info › Run anyway*. The first start of the installer
-can take a few seconds while antivirus scans it (it carries NVIDIA's ≈ 200 MB AI model).
+code-signed, so SmartScreen may warn: *More info › Run anyway*.
 
 ## Requirements
 
 Windows 10/11 (64-bit), a DirectX 11 graphics card (NVIDIA RTX 40/50 for NVIDIA VFG), a USB (UVC)
-HDMI capture card. 
+HDMI capture card 
 
 ## Black Screen from Capture Card when trying to use a console (eg PS5)?
 By default, some consoles/devices disable viewing through a capture card by default (eg. PS5/PS4). To fix this, turn **HDCP off** (PS5: Settings › System › HDMI).
