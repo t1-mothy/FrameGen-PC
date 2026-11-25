@@ -7,7 +7,7 @@
 - **2× – 8× frame generation**, with multiple supported engines, including:
   - **NVIDIA VFG** (RTX 4/5000 series)
   - **NVIDIA DLSS FG** (RTX 4/5000 series)
-  - **AMD FSR** (2× only, most DirectX 12 GPUs incl. NVIDIA RTX 2/3000 series)
+  - **AMD FSR** (GPU with DirectX 12 support, incl. NVIDIA RTX 2/3000 series)
   - FrameGen's own GPU engine (Direct3D 11 compute, any modern GPU)
 - **HUD & text stabilisation** - avoid inaccurate frame generation for persistent on-screen UI (eg. game HUD, window borders)
 - **Sound passthrough** - view your console/capture device directly through your PC and PC speakers
