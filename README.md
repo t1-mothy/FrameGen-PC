@@ -1,6 +1,6 @@
-# FrameGen for Windows
+# FrameGen
 
-**Real-time frame generation for capture cards on Windows PCs, allowing for up to an 8x boost in FPS**
+**Boost FPS by up to 8x through real-time frame generation for capture cards on Windows PCs**
 
 ## Features
 
